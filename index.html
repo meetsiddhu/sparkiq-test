@@ -231,6 +231,33 @@ table.stats th { color: var(--ink-dim); font-weight: 600; }
 .persona-card .pn { font-weight: 700; margin-top: 4px; }
 .persona-card .pb { font-size: .74em; color: var(--ink-dim); }
 
+/* ---- Class progress bar (Aishu: make it feel like a class with momentum) ---- */
+.classbar { margin: 6px 2px 2px; }
+.classbar-lbl { display: flex; justify-content: space-between; font-size: .78em; color: var(--ink-dim); margin-bottom: 4px; font-weight: 600; }
+.classbar .progressbar { height: 12px; }
+.classbar .progressbar > div { background: linear-gradient(90deg, #7ce38b, var(--spark), #ff8fa3); background-size: 200% 100%; animation: shimmer 3s linear infinite; }
+@keyframes shimmer { to { background-position: 200% 0; } }
+.chip.xp.pop { animation: xppop .4s ease; }
+@keyframes xppop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+/* ---- Bubbly UI: rounder, bouncier, more delight ---- */
+button { transition: transform .12s cubic-bezier(.34,1.56,.64,1), background .15s ease; }
+button:active { transform: scale(.9); }
+button.primary, button.spark { border-radius: 999px; }
+.opts button { border-radius: 16px; animation: optIn .28s cubic-bezier(.34,1.56,.64,1) both; }
+.opts button:nth-child(2) { animation-delay: .05s; } .opts button:nth-child(3) { animation-delay: .1s; }
+.opts button:nth-child(4) { animation-delay: .15s; }
+@keyframes optIn { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+.msg.spark-msg { border-bottom-left-radius: 8px; }
+.msg.kid { border-bottom-right-radius: 8px; }
+.msg { animation: bubbleIn .26s cubic-bezier(.34,1.56,.64,1); }
+@keyframes bubbleIn { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+.star-card { border-radius: 22px; }
+.avatar { animation: idlebob 3.4s ease-in-out infinite; }
+@keyframes idlebob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.avatar.speaking { animation: talk .5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .avatar, .classbar .progressbar > div, .opts button, .msg { animation: none; } }
+
 .footer-note { text-align: center; color: var(--ink-dim); font-size: .8em; margin-top: 26px; }
 .tag { display: inline-block; font-size: .72em; font-weight: 700; letter-spacing: .05em;
   padding: 2px 8px; border-radius: 6px; background: rgba(124,227,139,.15); color: var(--good); }
@@ -259,11 +286,14 @@ const CONFIG = {
     free:   { label: "Free",   subjects: 1,    aiTurnsPerDay: 10, children: 4, priceMonthly: 0,  priceYearly: 0 },
     family: { label: "Family", subjects: "all", aiTurnsPerDay: 200, children: 4, priceMonthly: 12, priceYearly: 99 },
   },
-  sessionXpCap: 120,
+  sessionXpCap: 1000,          // a full ~1hr class should keep rewarding (Aishu: don't stop early)
   xpCorrect: 10,
   xpAttempt: 4,
-  breakNudgeMinutes: 20,
-  breakNudgeMinutesYoung: 15,
+  classGoalXp: 200,            // one "class" = this much XP of progress (fills the class bar)
+  classMinutes: 60,           // a full class; break check-ins happen along the way
+  breakNudgeMinutes: 25,      // gentle stretch check-in, not a stop
+  breakNudgeMinutesYoung: 20,
+  milestoneEvery: 5,          // celebrate every N correct answers within a class
   maxMsgLen: 400,
   minMsgIntervalMs: 2000,
   reviewIntervalsDays: [1, 3, 7, 16, 30],
@@ -521,6 +551,54 @@ const MATH_SKILLS = [
         worked: `${b}^${n} = ${b**n}, so log = ${n}.`,
         real: `Earthquake and decibel scales are logs.`, trick: `"Log" = "what exponent?" — a power detector.` };
   }},
+  /* More generators = more variety (Aishu: "same questions again and again"). All procedural. */
+  { id: "money0", band: 0, name: "Money & change", gen() {
+      const cost = ri(2, 9) * 100 + ri(0, 19) * 5, paid = Math.ceil(cost / 500) * 500 + (Math.random() < .5 ? 0 : 500);
+      const ch = paid - cost;
+      return { q: `You buy something for $${(cost/100).toFixed(2)} and pay with $${(paid/100).toFixed(2)}. How much change (in dollars)?`, answer: (ch/100).toFixed(2), check: v => numEq(v, ch/100),
+        hints: [`Change = what you paid − what it cost.`, `$${(paid/100).toFixed(2)} − $${(cost/100).toFixed(2)}.`],
+        worked: `$${(paid/100).toFixed(2)} − $${(cost/100).toFixed(2)} = $${(ch/100).toFixed(2)}.`,
+        real: `Exactly the maths you do at the shop counter.`, trick: `Count up from the price to what you handed over.` };
+  }},
+  { id: "avg1", band: 1, name: "Averages (mean)", gen() {
+      const n = ri(3, 5); const nums = Array.from({length:n}, () => ri(2, 20)); const sum = nums.reduce((a,b)=>a+b,0);
+      const avg = sum / n; const nice = Number.isInteger(avg) ? avg : Math.round(avg*10)/10;
+      return { q: `Find the average (mean) of ${nums.join(", ")}.`, answer: String(nice), check: v => numEq(v, avg),
+        hints: [`Add them all up, then divide by how many there are.`, `Sum is ${sum}; there are ${n} numbers.`],
+        worked: `${sum} ÷ ${n} = ${nice}.`,
+        real: `Averages are how test scores, cricket runs and weather are summarised.`, trick: `Mean = total shared equally: add, then divide by the count.` };
+  }},
+  { id: "time1", band: 1, name: "Time & duration", gen() {
+      const h1 = ri(1, 10), m1 = pick([0,15,30,45]), add = pick([30,45,60,75,90]);
+      const start = h1*60+m1, end = start+add; const eh = Math.floor(end/60)%12 || 12, em = end%60;
+      const fmt = (h,m)=>`${h}:${String(m).padStart(2,"0")}`;
+      return { q: `A movie starts at ${fmt(h1,m1)} and runs ${add} minutes. What time does it finish? (like ${fmt(eh,em)})`, answer: fmt(eh,em), check: v => normAns(v).replace(/\s/g,"") === fmt(eh,em),
+        hints: [`Add the minutes on; remember 60 minutes = 1 hour.`, `${add} minutes = ${Math.floor(add/60)}h ${add%60}m.`],
+        worked: `${fmt(h1,m1)} + ${add} min = ${fmt(eh,em)}.`,
+        real: `Working out finish times is everyday planning maths.`, trick: `Jump to the next hour first, then add the leftover minutes.` };
+  }},
+  { id: "word2", band: 2, name: "Word problems", gen() {
+      const per = ri(3, 9), groups = ri(4, 12), extra = ri(1, per-1);
+      const total = per*groups + extra;
+      return { q: `${total} stickers are shared into bags of ${per}. How many full bags, and how many left over? (answer full bags)`, answer: String(groups), check: v => numEq(v, groups),
+        hints: [`This is division with a remainder.`, `${total} ÷ ${per} = ? remainder ?`],
+        worked: `${total} ÷ ${per} = ${groups} full bags, remainder ${extra}.`,
+        real: `Packing, sharing and grouping are everywhere in real life.`, trick: `Division tells you the groups; the remainder is what won't fill a group.` };
+  }},
+  { id: "perc2", band: 2, name: "Percentage of amount", gen() {
+      const p = pick([5,15,30,40,60,75]), w = pick([20,40,80,120,160,200]); const ans = w*p/100;
+      return { q: `What is ${p}% of ${w}?`, answer: String(ans), check: v => numEq(v, ans),
+        hints: [`Find 10% first (÷10), then build up to ${p}%.`, `10% of ${w} = ${w/10}.`],
+        worked: `10% of ${w} = ${w/10}; ${p}% = ${p/10} × ${w/10} = ${ans}.`,
+        real: `Sales discounts, tips and test scores are all percentages.`, trick: `10% is your key — divide by 10, then scale.` };
+  }},
+  { id: "neg3", band: 3, name: "Order of operations", gen() {
+      const a = ri(2, 9), b = ri(2, 6), c = ri(2, 9); const ans = a + b*c;
+      return { q: `Work it out: ${a} + ${b} × ${c}`, answer: String(ans), check: v => numEq(v, ans),
+        hints: [`BODMAS: do × before +.`, `${b} × ${c} = ${b*c}, then add ${a}.`],
+        worked: `${b}×${c}=${b*c}; ${a}+${b*c}=${ans}.`,
+        real: `Calculators and spreadsheets follow this exact order.`, trick: `BODMAS: Brackets, Orders, ÷×, +− — multiply before you add.` };
+  }},
 ];
 
 /* Thinking-skills generators — logic/reasoning items for OC/Selective/ICAS practice */
@@ -567,6 +645,15 @@ const SELECTIVE_BANK = {
     { band: 2, skill: "Reading — vocabulary in context", q: `"The scientist's theory was met with scepticism until the evidence became overwhelming." Here, "scepticism" most nearly means…`,
       opts: ["excitement", "doubt", "agreement", "confusion"], a: 1,
       hints: ["The clue is 'until the evidence became overwhelming'.", "People didn't believe it at first."], worked: `"Until the evidence became overwhelming" signals people doubted it first — scepticism means doubt.`, real: `Vocab-in-context is guessing meaning from clues, a top selective skill.`, trick: `Read around the word for the clue that pins its meaning.` },
+    { band: 1, skill: "Reading — sequence", q: `Read: "First Leo mixed the flour and water. Next he kneaded the dough. Then he left it to rise before shaping the loaf." What did Leo do immediately AFTER kneading?`,
+      opts: ["Mixed flour and water", "Left it to rise", "Shaped the loaf", "Ate it"], a: 1,
+      hints: ["Find 'kneaded', then read the very next step.", "'Then he left it to rise' follows kneading."], worked: `The order is: mix → knead → leave to rise → shape. Straight after kneading is 'left it to rise'.`, real: `Following sequence precisely is tested in every reading paper.`, trick: `Underline the time words: first, next, then, after.` },
+    { band: 2, skill: "Reading — fact vs opinion", q: `Which of these is an OPINION, not a fact?`,
+      opts: ["Sydney is in Australia", "Water boils at 100°C at sea level", "Summer is the best season", "A triangle has three sides"], a: 2,
+      hints: ["An opinion is a personal view others could disagree with.", "Which one can't be proven true or false?"], worked: `"Summer is the best season" is a personal view — an opinion. The others are checkable facts.`, real: `Separating fact from opinion is key to spotting persuasion.`, trick: `If people could reasonably disagree, it's an opinion.` },
+    { band: 3, skill: "Reading — inference", q: `Read: "Dad glanced at the clock, sighed, and started tidying the untouched party decorations." We can best infer that…`,
+      opts: ["the party was a big success", "no guests had arrived", "Dad loves decorating", "it was morning"], a: 1,
+      hints: ["Why would decorations be 'untouched' and Dad sighing?", "Put the clues together: clock, sigh, untouched."], worked: `Untouched decorations + a sigh + clock-watching imply the guests hadn't come — the party wasn't going to plan.`, real: `High-level inference stacks several clues into one conclusion.`, trick: `Ask: what situation would make ALL these clues true at once?` },
   ],
   selMath: [
     { band: 2, skill: "Multi-step reasoning", q: `A pizza is cut into 8 equal slices. Sam eats 3 slices, then Mia eats half of what's left. How many slices remain?`,
@@ -578,6 +665,15 @@ const SELECTIVE_BANK = {
     { band: 3, skill: "Working backwards", q: `Think of a number. Double it, add 6, and you get 20. What was the number?`,
       a: "7", check: v => numEq(v, 7),
       hints: ["Undo the steps in reverse.", "From 20, subtract 6, then halve."], worked: `Reverse: 20 − 6 = 14, then 14 ÷ 2 = 7.`, real: `Working backwards is a signature selective technique.`, trick: `Undo each step in reverse order to find the start.` },
+    { band: 2, skill: "Fractions of a group", q: `A class of 30 students: 2/5 walk to school. How many walk?`,
+      a: "12", check: v => numEq(v, 12),
+      hints: ["Find 1/5 of 30 first.", "1/5 of 30 = 6, and you need 2 of those."], worked: `30 ÷ 5 = 6 (one fifth); 2 fifths = 2 × 6 = 12.`, real: `Fractions of a quantity appear all over selective maths.`, trick: `Divide by the bottom, multiply by the top.` },
+    { band: 2, skill: "Patterns & rules", q: `A pattern goes 4, 7, 10, 13, … What is the 6th number?`,
+      a: "19", check: v => numEq(v, 19),
+      hints: ["What is added each step?", "It goes up by 3 each time: …13, 16, 19."], worked: `Add 3 each time. 4,7,10,13,16,19 — the 6th is 19.`, real: `Finding the rule then extending it is core reasoning.`, trick: `Find the step, then keep stepping to the position you need.` },
+    { band: 3, skill: "Logical maths", q: `In a race, Kim finished ahead of Sam but behind Tara. Who came first?`,
+      a: "Tara", check: v => normAns(v).includes("tara"),
+      hints: ["Order them from first to last.", "Tara is ahead of Kim, who is ahead of Sam."], worked: `Tara → Kim → Sam. Tara came first.`, real: `Ordering from clues is half of the thinking-skills section.`, trick: `Draw the finish line and place each clue.` },
   ],
 };
 
@@ -1095,18 +1191,25 @@ const TTS = {
   load() { if (this.supported) { this.voices = speechSynthesis.getVoices() || []; } },
   pickVoice() {
     if (!this.voices.length) this.load();
-    // Prefer an English (AU/GB/US) voice for an Aussie kid
-    return this.voices.find(v => /en-AU/i.test(v.lang)) ||
-           this.voices.find(v => /en-GB/i.test(v.lang)) ||
-           this.voices.find(v => /^en/i.test(v.lang)) || this.voices[0] || null;
+    const v = this.voices;
+    // Aishu: the default voice sounded robotic. Prefer warm, natural, named human voices
+    // (these ship on iPad/Mac and sound far more human than the generic default).
+    const warm = ["Karen", "Catherine", "Matilda", "Serena", "Samantha", "Moira", "Fiona", "Tessa", "Daniel", "Google UK English Female", "Google US English"];
+    for (const name of warm) { const m = v.find(x => x.name && x.name.includes(name)); if (m) return m; }
+    // Next best: any "enhanced/premium/natural" quality English voice
+    const enhanced = v.find(x => /^en/i.test(x.lang) && /(enhanced|premium|natural|siri)/i.test(x.name || ""));
+    if (enhanced) return enhanced;
+    return v.find(x => /en-AU/i.test(x.lang)) || v.find(x => /en-GB/i.test(x.lang)) || v.find(x => /^en/i.test(x.lang)) || v[0] || null;
   },
   speak(text, persona) {
     if (!this.supported) return;
     try {
       speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(String(text).replace(/[⭐🚀🐨🤖🌟✨🎉💛🔭🧰💡🎤📐📖⚛️🧪🌱🧭🏁🎯🔁🎓😄🙂😕🌏🧠📝🎁🔥🌙💪✔✘→←]/g, "").slice(0, 400));
+      const u = new SpeechSynthesisUtterance(String(text).replace(/[⭐🚀🐨🤖🌟✨🎉💛🔭🧰💡🎤📐📖⚛️🧪🌱🧭🏁🎯🔁🎓😄🙂😕🌏🧠📝🎁🔥🌙💪🌈🎈✔✘→←]/g, "").replace(/\s+/g, " ").slice(0, 400));
       const v = this.pickVoice(); if (v) u.voice = v;
-      if (persona) { u.pitch = persona.pitch; u.rate = persona.rate; }
+      // Slightly slower + gently warm pitch reads as friendlier and clearer for a kid.
+      u.rate = (persona ? persona.rate : 1) * 0.92;
+      u.pitch = persona ? persona.pitch : 1.1;
       u.onstart = () => document.querySelectorAll(".avatar").forEach(a => a.classList.add("speaking"));
       u.onend = () => document.querySelectorAll(".avatar").forEach(a => a.classList.remove("speaking"));
       speechSynthesis.speak(u);
@@ -1351,8 +1454,9 @@ function startSession(childId, subject, forceMode) {
       ${avatarHeader(c)}
       <span class="chip">${isExplore ? "🔭 Explore" : subj.glyph + " " + subj.name}</span>
       <span class="row"><span class="chip timerchip" id="examclock" style="display:none"></span>
-      <span class="chip xp" id="sesxp">+0 XP</span></span>
+      <span class="chip xp" id="sesxp">⭐ 0 XP</span></span>
     </div>
+    ${classBarHtml()}
     <div class="chat-wrap">
       <div class="msgs" id="msgs"></div>
       <div class="opts" id="opts"></div>
@@ -1443,16 +1547,41 @@ function setActions(list) { /* ≤2 actions, always */
     b.textContent = label; b.onclick = fn; a.appendChild(b);
   });
 }
-function showInput(show) { document.getElementById("ibar").style.display = show ? "flex" : "none"; }
+function showInput(show) { const b = document.getElementById("ibar"); if (b) b.style.display = show ? "flex" : "none"; }
+function classBarHtml() {
+  return `<div class="classbar"><div class="classbar-lbl"><span id="classlbl">Today's class</span><span id="classpct">🎯</span></div>
+    <div class="progressbar"><div id="classfill" style="width:0%"></div></div></div>`;
+}
 function addXp(n) {
   if (!SES) return;
   SES.xp = Math.min(CONFIG.sessionXpCap, SES.xp + n);
   SES.sessionRow.xp = SES.xp;
-  const lv = SES.subject !== "explore" ? levelsFor(SES.childId, SES.subject) : null;
+  const lv = SES.subject !== "explore" && SES.subject !== "exam" ? levelsFor(SES.childId, SES.subject) : null;
   if (lv) { lv.xp += n; }
   save();
   const chip = document.getElementById("sesxp");
-  if (chip) chip.textContent = `+${SES.xp} XP${SES.xp >= CONFIG.sessionXpCap ? " (max)" : ""}`;
+  if (chip) { chip.textContent = `⭐ ${SES.xp} XP`; chip.classList.remove("pop"); void chip.offsetWidth; chip.classList.add("pop"); }
+  updateClassBar();
+}
+/* Class progress: the session is a "class" filling toward classGoalXp, then it loops into a
+   fresh "bonus round" so a keen kid keeps going without ever being stopped. */
+function updateClassBar() {
+  const bar = document.getElementById("classfill"); if (!bar) return;
+  const round = Math.floor(SES.xp / CONFIG.classGoalXp);
+  const within = SES.xp - round * CONFIG.classGoalXp;
+  bar.style.width = Math.min(100, within / CONFIG.classGoalXp * 100) + "%";
+  const lbl = document.getElementById("classlbl");
+  if (lbl) lbl.textContent = round === 0 ? "Today's class" : `Bonus round ${round} 🔥`;
+}
+/* Celebrate every Nth correct answer within a class — momentum without a dark pattern. */
+function classMilestone() {
+  SES.correctCount = (SES.correctCount || 0) + 1;
+  if (SES.correctCount % CONFIG.milestoneEvery === 0) {
+    confetti();
+    sys(`🎉 ${SES.correctCount} correct this class — you're on fire, ${SES.child.nickname}!`);
+    return true;
+  }
+  return false;
 }
 
 /* ---------- Turn gate: rate limit, length, moderation, daily cap ---------- */
@@ -1472,13 +1601,17 @@ function gateTurn(text) {
     if (flag.kind === "distress") setActions([["Back to learning", () => resumeAfterSafety()]]);
     return false;
   }
-  const used = useTurn(SES.childId);
   SES.sessionRow.turns = ++SES.turns; save();
-  if (used > tier().aiTurnsPerDay) {
-    say(`You've done heaps of great learning today, ${SES.child.nickname}! 🌟 That's all the Spark turns for today — everything is saved, and I'll be right here tomorrow. Rest is part of learning too!`);
-    logSafety(SES.childId, "rate_limit", "Daily free-tier turn limit reached (gentle stop, no upsell shown to child).");
-    showInput(false); setOpts([]); setActions([["Finish for today 🌙", () => endSession()]]);
-    return false;
+  /* Only the REMOTE LLM costs money, so only remote calls are metered against the daily cap.
+     The built-in offline engine is free and unlimited — a kid mid-class must never be cut off.
+     (Aishu pilot: the old cap throttled free offline learning after ~10 questions.) */
+  if (S.settings.engine === "remote") {
+    const used = useTurn(SES.childId);
+    if (used > tier().aiTurnsPerDay) {
+      say(`We've used today's AI-chat helper, ${SES.child.nickname} — but there's still LOADS to practise! I'll switch to my built-in questions so we can keep going. 🚀`);
+      logSafety(SES.childId, "rate_limit", "Daily remote-LLM turn limit reached — fell back to free offline engine, learning continues.");
+      S.settings.engine = "local"; save();
+    }
   }
   return true;
 }
@@ -1494,30 +1627,35 @@ function routeMode() {
   else nextLearn();
 }
 
-/* ---------- Break nudge (validates stopping) ---------- */
+/* ---------- Break check-in (gentle; keeps 'keep going' frictionless) ----------
+   Aishu pilot: it stopped too early. A session is now a ~1hr class the kid drives.
+   We still offer a stretch every ~25 min (healthy, and validates stopping IS okay),
+   but "keep going" is the default and the class continues. This is NOT an infinite
+   feed — the class has a visible goal arc (see class progress bar). */
 function checkBreakNudge() {
   if (!SES || SES.nudged) return;
   const mins = (Date.now() - SES.start) / 60000;
   const cap = SES.child.young ? CONFIG.breakNudgeMinutesYoung : CONFIG.breakNudgeMinutes;
   if (mins >= cap) {
     SES.nudged = true;
-    const v = modal(`<div class="celebrate-big"><div class="big">🌙</div>
-      <h2>You've been learning for ${Math.round(mins)} minutes!</h2>
-      <p class="dim">Brains grow the most <i>during breaks</i> — stopping now is a smart move, not quitting.</p>
+    TTS.stop();
+    const v = modal(`<div class="celebrate-big"><div class="big">🌈</div>
+      <h2>${Math.round(mins)} minutes of awesome focus, ${esc(SES.child.nickname)}!</h2>
+      <p class="dim">Want a quick 20-second wiggle-and-stretch, then keep going? Or wrap up for now — both are great choices.</p>
       <div class="actions" style="margin-top:16px">
-        <button class="spark" id="bn-stop">Finish & save ⭐</button>
-        <button class="ghost" id="bn-more">5 more minutes</button>
+        <button class="spark" id="bn-more">Keep going! 🚀</button>
+        <button class="ghost" id="bn-stop">Finish for now ⭐</button>
       </div></div>`);
     v.dataset.lock = "1";
     v.querySelector("#bn-stop").onclick = () => { v.remove(); endSession(true); };
-    v.querySelector("#bn-more").onclick = () => { v.remove(); setTimeout(() => { SES && (SES.nudged = false); }, 5 * 60000); };
+    v.querySelector("#bn-more").onclick = () => { v.remove(); confetti(); setTimeout(() => { SES && (SES.nudged = false); }, 25 * 60000); };
   }
 }
 
 /* ---------- Item presentation & answering ---------- */
 function presentItem(item, isRepeat) {
   SES.item = item; SES.hintIdx = 0; SES.attempts = 0; SES.answered = false;
-  SES.recentQs.push(item.q); SES.recentQs = SES.recentQs.slice(-12);
+  SES.recentQs.push(item.q); SES.recentQs = SES.recentQs.slice(-60); // Aishu: avoid repeats far longer
   SES.skillsSeen.add(item.skillName);
   if (!isRepeat) say(item.q, SES.mode === "exam" ? null : item.skillName);
   else say("Here it is again: " + item.q);
@@ -1560,8 +1698,9 @@ function handleAnswer(value, isTyped) {
     SES.correctStreak++;
     say(GREETINGS.celebrate());
     addXp(CONFIG.xpCorrect);
+    const milestone = classMilestone();
     if (SES.correctStreak === 3) { starEarned(); }
-    setTimeout(nextLearn, 800);
+    setTimeout(nextLearn, milestone ? 1300 : 800);
   } else {
     SES.attempts++; SES.correctStreak = 0;
     addXp(CONFIG.xpAttempt);
@@ -1865,7 +2004,8 @@ function recordSelective(correct) {
   if (correct) {
     SES.answered = true; SES.selCorrect++; SES.missStreak = 0;
     say(GREETINGS.celebrate()); addXp(CONFIG.xpCorrect);
-    setTimeout(nextSelective, 900);
+    const m = classMilestone();
+    setTimeout(nextSelective, m ? 1300 : 900);
   } else {
     SES.attempts++;
     if (SES.attempts >= 2) {
@@ -1914,8 +2054,9 @@ function renderSessionShell(c, label) {
       ${avatarHeader(c)}
       <span class="chip">${label}</span>
       <span class="row"><span class="chip timerchip" id="examclock" style="display:none"></span>
-      <span class="chip xp" id="sesxp">+0 XP</span></span>
+      <span class="chip xp" id="sesxp">⭐ 0 XP</span></span>
     </div>
+    ${classBarHtml()}
     <div class="chat-wrap">
       <div class="msgs" id="msgs"></div>
       <div class="opts" id="opts"></div>

@@ -885,6 +885,39 @@ const EXPLORE_BANK = [
 ];
 
 /* ============================================================
+   SPEAK & SHINE — communication & articulation coach.
+   The kid SPEAKS (voice input) or types a response; we give
+   specific, kind feedback on how clearly they expressed it.
+   ============================================================ */
+const SPEAK_ACTIVITIES = [
+  { id: "explain", glyph: "💡", name: "Explain it", kind: "explain",
+    prompt: (band) => `Teach me something you know well — a game, a hobby, or how to do something — as if I've never heard of it. Explain it out loud, step by step!`,
+    tip: "Great explaining has an order: start simple, then add detail." },
+  { id: "describe", glyph: "🔍", name: "Describe it", kind: "describe",
+    prompts: ["Describe your favourite animal so well I could picture it with my eyes closed.",
+      "Describe your bedroom to someone who's never seen it.", "Describe your favourite food — make it sound delicious!",
+      "Describe a rainy day using what you'd see, hear and feel."],
+    tip: "Rich describing uses the senses: what you see, hear, smell, feel." },
+  { id: "impromptu", glyph: "🎤", name: "Big topic", kind: "impromptu",
+    prompts: ["If you could have any superpower, what would it be and why?", "What makes a good friend?",
+      "Should kids get homework? Give your reasons.", "What would you change about your school and why?",
+      "Tell me about the best day you can imagine.", "If you were in charge of the country for a day, what's the first thing you'd do?"],
+    tip: "Strong talks have a shape: your point, your reasons, then a wrap-up." },
+  { id: "word", glyph: "📚", name: "Word power", kind: "word",
+    words: [["curious", "wanting to learn or know more"], ["enormous", "very, very big"], ["delicate", "easily broken; needs gentle care"],
+      ["ancient", "very old, from long ago"], ["brilliant", "very clever or very bright"], ["gigantic", "huge"],
+      ["fragile", "easily broken"], ["generous", "happy to share and give"], ["determined", "not giving up"], ["magnificent", "wonderful and impressive"]],
+    tip: "New words stick when you USE them in a sentence you made up." },
+  { id: "twister", glyph: "👅", name: "Tongue twisters", kind: "twister",
+    twisters: ["She sells seashells by the seashore.", "Red lorry, yellow lorry.", "Six slippery snails slid slowly seaward.",
+      "How much wood would a woodchuck chuck if a woodchuck could chuck wood?", "A proper copper coffee pot.", "Fresh fried fish, fish fresh fried."],
+    tip: "Say it slowly and clearly first, then speed up — clear beats fast." },
+];
+function speakActivity(id) { return SPEAK_ACTIVITIES.find(a => a.id === id); }
+
+const FILLERS = /\b(um+|uh+|er+|like|you know|basically|literally|sort of|kind of)\b/gi;
+
+/* ============================================================
    SAFETY — moderation, distress, persona-override detection
    ============================================================ */
 const SAFETY = {
@@ -1051,6 +1084,54 @@ const Engine = {
     fb.push(used.length ? `Connectives: good use of ${used.slice(0,3).join(", ")} — they glue your logic together.` : `Connectives: add linking words (because, however, therefore) to show your reasoning.`);
     fb.push(/i (think|believe|argue)|should|must|clearly/i.test(text) ? `Voice: you take a clear position — examiners reward that.` : `Voice: state your position clearly ("I believe…") so the reader knows where you stand.`);
     return fb;
+  },
+
+  /* Articulation feedback: score a spoken (or typed) response on clarity, completeness,
+     filler words, structure and vocabulary. Returns kind, specific, actionable feedback +
+     a 1–5 "speaking stars" score + metrics (for the parent's articulation view). */
+  evalSpeech(text, activity) {
+    const t = (text || "").trim();
+    const words = t.split(/\s+/).filter(Boolean);
+    const sentences = t.split(/[.!?]+/).map(s => s.trim()).filter(s => s.split(/\s+/).length >= 2);
+    const fillerMatches = t.match(FILLERS) || [];
+    const fillers = fillerMatches.length;
+    const uniq = new Set(words.map(w => w.toLowerCase().replace(/[^a-z]/g, ""))).size;
+    const richness = words.length ? uniq / words.length : 0;
+    const connectives = ["because", "so", "then", "first", "next", "also", "but", "however", "finally", "for example"];
+    const usedConn = connectives.filter(c => new RegExp("\\b" + c + "\\b", "i").test(t));
+
+    const fb = [];
+    let stars = 3;
+    // Length / completeness
+    if (words.length < 8) { fb.push(`💬 That was short (${words.length} words) — give me more! Add another sentence or two.`); stars--; }
+    else if (words.length > 25) { fb.push(`💬 Lovely and full (${words.length} words) — you really developed your idea.`); stars++; }
+    else fb.push(`💬 Good length (${words.length} words).`);
+    // Fillers
+    if (fillers === 0 && words.length >= 8) { fb.push(`✨ Super clear — no "um"s or "like"s. That sounds confident!`); stars++; }
+    else if (fillers >= 3) { fb.push(`🎯 I heard "${[...new Set(fillerMatches.map(f => f.toLowerCase()))].slice(0,3).join('", "')}" a few times. A tiny pause instead of an "um" makes you sound sure of yourself — try it!`); stars--; }
+    else if (fillers > 0) fb.push(`🎯 Only a couple of filler words — nearly there! A short pause beats an "um".`);
+    // Structure (activity-aware)
+    if (activity && activity.kind === "impromptu") {
+      fb.push(usedConn.length >= 2 ? `🗂️ Nice structure — you linked ideas with "${usedConn.slice(0,2).join('", "')}".` : `🗂️ Try a shape: your POINT, then "because…" for a reason, then a wrap-up.`);
+      if (usedConn.length >= 2) stars++;
+    } else if (activity && activity.kind === "describe") {
+      const senses = /(see|saw|look|colour|color|hear|heard|sound|smell|taste|feel|felt|soft|rough|bright)/i.test(t);
+      fb.push(senses ? `👀 Great sensory words — I could really picture it!` : `👀 Add a sense: what did it look, sound or feel like?`);
+      if (senses) stars++;
+    } else if (activity && activity.kind === "explain") {
+      const ordered = /\b(first|then|next|after|finally|start)\b/i.test(t);
+      fb.push(ordered ? `🪜 You explained it in order — easy to follow!` : `🪜 Try step words: "First…, then…, finally…" so it's easy to follow.`);
+      if (ordered) stars++;
+    } else if (activity && activity.kind === "word") {
+      const usedWord = activity._word && new RegExp("\\b" + activity._word + "\\b", "i").test(t);
+      fb.push(usedWord ? `📚 You used the new word perfectly in your own sentence — that's how it sticks!` : `📚 Try to actually use the word "${activity._word}" in your sentence.`);
+      if (usedWord) stars++;
+    }
+    // Vocabulary richness
+    if (richness > 0.75 && words.length >= 10) { fb.push(`🌈 Rich vocabulary — you barely repeated a word.`); }
+    stars = Math.max(1, Math.min(5, stars));
+    const metrics = { words: words.length, sentences: sentences.length, fillers, richness: Math.round(richness * 100) };
+    return { fb, stars, metrics };
   },
 
   nextReviewInterval(idx) { const iv = CONFIG.reviewIntervalsDays; return iv[Math.min(idx, iv.length - 1)]; },
@@ -1399,6 +1480,10 @@ function screenHome(childId) {
       <div class="row spread"><div><b>🔭 Explore Anything</b><br>
       <small class="dim">Why is the sky blue? How do volcanoes work? Ask away!</small></div><span style="font-size:1.6em">→</span></div>
     </div>
+    <div class="card" style="cursor:pointer;border-color:var(--accent)" onclick="startSpeak('${childId}')">
+      <div class="row spread"><div><b>🎤 Speak & Shine</b><br>
+      <small class="dim">Grow your talking &amp; explaining skills — describe, explain, big topics &amp; tongue twisters.</small></div><span style="font-size:1.6em">→</span></div>
+    </div>
     <div class="grid2">
       <div class="card" style="cursor:pointer;margin:14px 0 0" onclick="startPaperSolve('${childId}')">
         <div><b>📝 Homework help</b><br><small class="dim">Stuck on a question? I'll explain it, step by step.</small></div></div>
@@ -1683,6 +1768,7 @@ function handleAnswer(value, isTyped) {
   if (SES.mode === "explore") return exploreReply(value);
   if (SES.mode === "feynman") return feynmanReply(value);
   if (SES.mode === "writing") return writingReply(value);
+  if (SES.mode === "speak") return speakReply(value);
   const it = SES.item; if (!it) return;
   /* Guard: once an answer is accepted, ignore repeats until the next
      question renders — double-taps must never double-count. */
@@ -2149,6 +2235,66 @@ function writingReply(text) {
   addXp(CONFIG.xpCorrect);
   setActions([["Redraft ✍️", () => { say("Go for it — send the new version when ready!"); }], ["New prompt 🎲", () => startWriting()]]);
 }
+
+/* ============================================================
+   SPEAK & SHINE — communication & articulation coach.
+   Voice-first (uses the parent-enabled mic); types as a fallback.
+   ============================================================ */
+function startSpeak(childId) {
+  const c = S.children.find(x => x.id === childId);
+  SES = examSessionShell(childId, c, "speak");
+  SES.subject = "communication";
+  renderSessionShell(c, "🎤 Speak & Shine");
+  say(`🎤 Speak & Shine — this is where we grow your talking and explaining skills, ${c.nickname}! Pick an activity. ${c.voiceInput && STT.supported ? "Tap the 🎙️ and just talk — I'll listen!" : "You can type your answer (a grown-up can switch on voice answers in the Parent area for talking out loud)."}`);
+  speakMenu();
+}
+function speakMenu() {
+  showInput(false); setOpts([]);
+  const o = document.getElementById("opts");
+  SPEAK_ACTIVITIES.forEach(a => {
+    const b = document.createElement("button");
+    b.textContent = `${a.glyph} ${a.name}`;
+    b.onclick = () => { kidSay(a.name); startSpeakActivity(a.id); };
+    o.appendChild(b);
+  });
+  setActions([["Home ⭐", () => endSession()]]);
+}
+function startSpeakActivity(id) {
+  const a = Object.assign({}, speakActivity(id));
+  SES.speakAct = a; SES.mode = "speak";
+  if (a.kind === "twister") {
+    a._twister = pick(a.twisters);
+    say(`👅 Tongue twister time! Say this out loud, 3 times, as clearly as you can:\n\n"${a._twister}"\n\nThen tell me how it went (or say it to me!).`, a.tip);
+  } else if (a.kind === "word") {
+    const w = pick(a.words); a._word = w[0]; a._def = w[1];
+    say(`📚 Today's power word is "${w[0]}" — it means "${w[1]}".\n\nNow YOU make up a sentence using "${w[0]}". Say it or type it!`, a.tip);
+  } else if (a.kind === "explain") {
+    say(`💡 ${a.prompt(SES.band)}`, a.tip);
+  } else {
+    a._prompt = pick(a.prompts);
+    say(`${a.glyph} ${a._prompt}`, a.tip);
+  }
+  showInput(true);
+  const inp = document.getElementById("kidin");
+  if (inp) inp.placeholder = (SES.child.voiceInput && STT.supported) ? "Tap 🎙️ and talk, or type…" : "Type your answer…";
+  const acts = [["🎲 Another activity", () => speakMenu()], ["Home ⭐", () => endSession()]];
+  setActions(acts);
+  if (SES.child.voiceInput && STT.supported && inp) { /* nudge the mic */ }
+}
+function speakReply(text) {
+  const a = SES.speakAct || {};
+  const r = Engine.evalSpeech(text, a);
+  // record a light articulation profile for the parent (aggregate metrics only)
+  S.speakStats = S.speakStats || {};
+  const st = S.speakStats[SES.childId] = S.speakStats[SES.childId] || { attempts: 0, stars: 0, words: 0, fillers: 0 };
+  st.attempts++; st.stars += r.stars; st.words += r.metrics.words; st.fillers += r.metrics.fillers;
+  save();
+  say(`${"⭐".repeat(r.stars)}${"☆".repeat(5 - r.stars)}  Speaking stars!\n\n${r.fb.join("\n")}`);
+  addXp(CONFIG.xpCorrect);
+  if (r.stars >= 4) { confetti(); awardBadge(SES.childId, "Clear Speaker"); }
+  setActions([["Try again 🔁", () => { say(`Give it another go — even better this time!`); showInput(true); }],
+              ["New activity 🎲", () => speakMenu()]]);
+}
 function examCoach() {
   const exam = SES.examId ? examById(SES.examId) : null;
   say(`🎓 Coach's corner${exam ? ` for the ${exam.name}` : ""} — the five habits that beat exam nerves:\n\n1. PACE: marks per minute, not perfection. Bank easy marks first.\n2. SKIP & RETURN: a stuck question steals time from three easy ones.\n3. BREATHE: 3 slow breaths resets your thinking brain (it really does).\n4. SHOW WORKING: part marks are real marks.\n5. SLEEP: the night-before all-nighter is a myth that costs marks.\n\nRemember: I can't promise results — nobody honestly can. What practice DOES promise is that exam day feels familiar instead of scary. For the official format and dates, always check the official exam website with a parent.`);
@@ -2388,10 +2534,13 @@ function feedbackTab() {
     if (c.wantsMoreFun) changed.push("more celebrations");
     if (c.wantsSlower) changed.push("slower pacing");
     if (c.prefersShorter) changed.push("shorter sessions");
+    const sp = (S.speakStats || {})[c.id];
+    const spLine = sp && sp.attempts ? `<p class="dim" style="margin-top:8px"><small>🎤 Speaking practice: ${sp.attempts} turn${sp.attempts>1?"s":""}, avg ${(sp.stars/sp.attempts).toFixed(1)}★, ~${Math.round(sp.words/sp.attempts)} words/turn, ${(sp.fillers/sp.attempts).toFixed(1)} filler words/turn ${sp.fillers/sp.attempts < 1 ? "— lovely and clear!" : "— pausing beats saying 'um'."}</small></p>` : "";
     return `<div class="card">
       <div class="row spread"><b>${personaFor(c).emoji} ${esc(c.nickname)}</b>
       ${fs ? `<span class="tag ${fs.pctLoved >= 60 ? "good" : ""}">😄 ${fs.loved} · 🙂 ${fs.ok} · 😕 ${fs.meh} → ${fs.pctLoved}% loved</span>` : `<span class="tag">no ratings yet</span>`}</div>
       ${rlist.length ? `<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px">${rlist.map(([r, n]) => `<span class="tag">${esc(r.replace("loved:", "💛 "))} ×${n}</span>`).join("")}</div>` : ""}
+      ${spLine}
       ${changed.length ? `<p class="dim" style="margin-top:8px"><small>✅ SparkIQ auto-adjusted for ${esc(c.nickname)}: ${changed.join(", ")}.</small></p>` : ""}
     </div>`;
   }).join("");

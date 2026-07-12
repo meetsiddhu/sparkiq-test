@@ -1573,10 +1573,12 @@ function updateClassBar() {
   const lbl = document.getElementById("classlbl");
   if (lbl) lbl.textContent = round === 0 ? "Today's class" : `Bonus round ${round} 🔥`;
 }
-/* Celebrate every Nth correct answer within a class — momentum without a dark pattern. */
+/* Celebrate every Nth correct answer within a class — momentum without a dark pattern.
+   Kids who told us it was "boring" get celebrations more often (wantsMoreFun signal). */
 function classMilestone() {
   SES.correctCount = (SES.correctCount || 0) + 1;
-  if (SES.correctCount % CONFIG.milestoneEvery === 0) {
+  const every = SES.child.wantsMoreFun ? Math.max(3, CONFIG.milestoneEvery - 2) : CONFIG.milestoneEvery;
+  if (SES.correctCount % every === 0) {
     confetti();
     sys(`🎉 ${SES.correctCount} correct this class — you're on fire, ${SES.child.nickname}!`);
     return true;
@@ -1855,7 +1857,9 @@ function learnBand() {
 }
 function nextLearn(skillId) {
   SES.mode = "learn";
-  presentItem(Engine.question(SES.subject, learnBand(), { skillId, avoid: SES.recentQs }));
+  /* If the kid told us it was too hard/confusing last time, start gentler this session. */
+  const prefEasy = SES.child.easeUp || SES.child.wantsSlower ? SES.correctCount < 3 : false;
+  presentItem(Engine.question(SES.subject, learnBand(), { skillId, avoid: SES.recentQs, prefEasy }));
 }
 
 /* ---------- Quiz (interleaved retrieval practice) ---------- */
@@ -2300,15 +2304,17 @@ function endSession(afterNudge) {
       confetti();
       const cid = SES.childId;
       const nick = SES.child.nickname;
+      const lastSubj = SES.subject || "";
       render(`<div class="celebrate-big"><div class="big">🌟</div>
         <h2>Great session, ${esc(nick)}!</h2>
         <p class="dim">${mins} min · +${SES.xp} XP · ${SES.skillsSeen.size ? [...SES.skillsSeen].length + " skills touched" : "curiosity fed"}</p>
-        <p style="margin-top:14px">How was that today? <small class="dim">(totally optional)</small></p>
-        <div class="row" style="justify-content:center;gap:10px;margin:12px 0 4px">
-          <button class="ghost" style="font-size:1.5em" title="Loved it" onclick="rateSession('${cid}','loved')">😄</button>
-          <button class="ghost" style="font-size:1.5em" title="It was okay" onclick="rateSession('${cid}','ok')">🙂</button>
-          <button class="ghost" style="font-size:1.5em" title="Not my favourite" onclick="rateSession('${cid}','meh')">😕</button>
+        <p style="margin-top:14px">How was that today, ${esc(nick)}? <small class="dim">(totally optional)</small></p>
+        <div class="row" id="fb-mood" style="justify-content:center;gap:10px;margin:12px 0 4px">
+          <button class="ghost" style="font-size:1.5em" title="Loved it" onclick="kidRate('${cid}','${lastSubj}','loved')">😄</button>
+          <button class="ghost" style="font-size:1.5em" title="It was okay" onclick="kidRate('${cid}','${lastSubj}','ok')">🙂</button>
+          <button class="ghost" style="font-size:1.5em" title="Not my favourite" onclick="kidRate('${cid}','${lastSubj}','meh')">😕</button>
         </div>
+        <div id="fb-reason"></div>
         <p style="margin-top:10px" class="dim">Everything is saved. Rest helps it stick! 🌙</p>
         <div class="actions" style="max-width:300px;margin:14px auto">
           <button class="primary" onclick="screenHome('${cid}')">Home ⭐</button></div></div>`);
@@ -2318,23 +2324,178 @@ function endSession(afterNudge) {
   }
   screenProfiles();
 }
-/* Guilt-free enjoyment signal — a real "do kids love it" proxy for the pilot.
-   Aggregate counts only (privacy-respecting), no pressure, celebrates any choice. */
-function rateSession(childId, mood) {
+/* ---------- Kid feedback loop — a real "do they love it" signal that ALSO tunes the app.
+   Aggregate counts + reason tags only (privacy-respecting), no pressure, celebrates any choice. */
+function kidRate(childId, subject, mood) {
   S.fun = S.fun || {};
   const f = S.fun[childId] = S.fun[childId] || { loved: 0, ok: 0, meh: 0 };
   if (f[mood] !== undefined) f[mood]++;
   save();
-  const el = event && event.target;
-  if (el) {
-    const row = el.parentElement;
-    row.innerHTML = `<p class="tag" style="font-size:1em">Thanks for telling me — see you next time! 🌟</p>`;
+  const moodEl = document.getElementById("fb-mood");
+  if (moodEl) moodEl.innerHTML = `<p class="tag" style="font-size:1em">Thanks! 🌟</p>`;
+  const reasonEl = document.getElementById("fb-reason");
+  if (!reasonEl) return;
+  if (mood === "loved") {
+    reasonEl.innerHTML = `<p class="dim" style="margin-top:8px">Yay! What did you like most?</p>
+      <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin-top:6px">
+        ${["It was fun", "Just right", "My buddy 🚀", "Felt smart"].map(r => `<button class="chip" onclick="kidReason('${childId}','${subject}','loved:${r.replace(/[^a-z ]/gi,"")}')">${r}</button>`).join("")}</div>`;
+  } else {
+    reasonEl.innerHTML = `<p class="dim" style="margin-top:8px">No worries — what would make it better?</p>
+      <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin-top:6px">
+        ${["Too hard", "Too easy", "A bit boring", "Confusing", "Too long"].map(r => `<button class="chip" onclick="kidReason('${childId}','${subject}','${r.replace(/[^a-z ]/gi,"")}')">${r}</button>`).join("")}</div>`;
   }
+}
+/* Store the reason AND close the loop: adjust the child's next experience accordingly. */
+function kidReason(childId, subject, reason) {
+  S.funReasons = S.funReasons || {};
+  (S.funReasons[childId] = S.funReasons[childId] || {});
+  S.funReasons[childId][reason] = (S.funReasons[childId][reason] || 0) + 1;
+  applyKidSignal(childId, subject, reason);
+  save();
+  const reasonEl = document.getElementById("fb-reason");
+  if (reasonEl) reasonEl.innerHTML = `<p class="tag good" style="font-size:1em">Got it — I'll use that next time. 💛</p>`;
+}
+/* The "use the feedback to improve" step, in-product: kid signals steer difficulty + delight. */
+function applyKidSignal(childId, subject, reason) {
+  const c = S.children.find(x => x.id === childId); if (!c) return;
+  const lv = subject && subject !== "explore" && subject !== "exam" && S.levels[childId] ? S.levels[childId][subject] : null;
+  if (/Too hard/i.test(reason)) { if (lv) { lv.level = Math.max(1, lv.level - 1); lv.challenge = false; } c.easeUp = true; }
+  else if (/Too easy/i.test(reason)) { if (lv) lv.level = Math.min(3, lv.level + 1); c.suggestChallenge = true; }
+  else if (/boring/i.test(reason)) { c.wantsMoreFun = true; }   // more celebration + variety hints
+  else if (/Confusing/i.test(reason)) { if (lv) lv.level = Math.max(1, lv.level - 1); c.wantsSlower = true; }
+  else if (/Too long/i.test(reason)) { c.prefersShorter = true; }
 }
 function funScore(childId) {
   const f = (S.fun || {})[childId]; if (!f) return null;
   const total = f.loved + f.ok + f.meh; if (!total) return null;
   return { total, loved: f.loved, ok: f.ok, meh: f.meh, pctLoved: Math.round(f.loved / total * 100) };
+}
+
+/* ============================================================
+   FEEDBACK — two-sided (kids + parents), rationalised into
+   insights, and fed back into the product. Aggregate + local only.
+   ============================================================ */
+function feedbackTab() {
+  const ins = feedbackInsights();
+  /* Kid enjoyment + reasons, per child */
+  const kidCards = S.children.map(c => {
+    const fs = funScore(c.id);
+    const reasons = (S.funReasons || {})[c.id] || {};
+    const rlist = Object.entries(reasons).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const changed = [];
+    if (c.easeUp) changed.push("eased difficulty down");
+    if (c.suggestChallenge) changed.push("ready for a challenge");
+    if (c.wantsMoreFun) changed.push("more celebrations");
+    if (c.wantsSlower) changed.push("slower pacing");
+    if (c.prefersShorter) changed.push("shorter sessions");
+    return `<div class="card">
+      <div class="row spread"><b>${personaFor(c).emoji} ${esc(c.nickname)}</b>
+      ${fs ? `<span class="tag ${fs.pctLoved >= 60 ? "good" : ""}">😄 ${fs.loved} · 🙂 ${fs.ok} · 😕 ${fs.meh} → ${fs.pctLoved}% loved</span>` : `<span class="tag">no ratings yet</span>`}</div>
+      ${rlist.length ? `<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px">${rlist.map(([r, n]) => `<span class="tag">${esc(r.replace("loved:", "💛 "))} ×${n}</span>`).join("")}</div>` : ""}
+      ${changed.length ? `<p class="dim" style="margin-top:8px"><small>✅ SparkIQ auto-adjusted for ${esc(c.nickname)}: ${changed.join(", ")}.</small></p>` : ""}
+    </div>`;
+  }).join("");
+
+  const recent = (S.parentFeedback || []).slice(0, 5).map(p =>
+    `<div class="event info"><b>NPS ${p.nps ?? "–"} · pay: ${esc(p.wtp || "–")}</b>
+     <br><small>${new Date(p.at).toLocaleDateString()}${p.improve ? " · improve: " + esc(p.improve) : ""}${p.comments ? " · " + esc(p.comments) : ""}</small></div>`).join("");
+
+  return `
+  <div class="card"><h2>💬 Feedback</h2>
+    <p class="dim">Two-way and private: your child rates each session (and tells Spark what to change — the app adjusts automatically),
+    and you share how it's landing. It all stays on this device; export it anytime to send us during the pilot.</p></div>
+
+  <div class="card"><h3>How your ${S.children.length > 1 ? "kids are" : "child is"} finding it</h3>
+    ${kidCards || `<p class="dim">No child ratings yet — they appear after a session.</p>`}</div>
+
+  <div class="card"><h2>Your feedback</h2>
+    <label>How likely are you to recommend SparkIQ to another parent? <span class="hint">(0 = not at all, 10 = definitely)</span></label>
+    <select id="fb-nps">${["–", ...Array.from({ length: 11 }, (_, i) => i)].map(n => `<option>${n}</option>`).join("")}</select>
+    <label>Would you pay ${CONFIG.currency} $${CONFIG.tiers.family.priceMonthly}/mo after the pilot?</label>
+    <select id="fb-wtp"><option value="">Choose…</option><option>Yes</option><option>Maybe</option><option>No</option></select>
+    <label>The ONE thing that would most improve it</label>
+    <textarea id="fb-improve" rows="2" placeholder="e.g. more variety in science, or a friendlier voice"></textarea>
+    <label>Anything else? <span class="hint">(optional)</span></label>
+    <textarea id="fb-comments" rows="2" placeholder="What your child said, what you noticed…"></textarea>
+    <div class="actions"><button class="primary" onclick="saveParentFeedback()">Send feedback</button></div>
+    ${recent ? `<h3 style="margin-top:16px">Your recent feedback</h3>${recent}` : ""}</div>
+
+  <div class="card"><h2>📈 Insights <small class="dim">(what the feedback suggests)</small></h2>
+    <div class="row" style="gap:20px;flex-wrap:wrap">
+      <div><div style="font-size:1.8em;font-weight:800;color:var(--spark)">${ins.pctLoved == null ? "–" : ins.pctLoved + "%"}</div><small class="dim">kids "loved it"</small></div>
+      <div><div style="font-size:1.8em;font-weight:800">${ins.nps == null ? "–" : ins.nps}</div><small class="dim">avg parent NPS</small></div>
+      <div><div style="font-size:1.8em;font-weight:800;color:var(--good)">${ins.wtpYes}</div><small class="dim">would pay (Yes)</small></div>
+    </div>
+    <h3 style="margin-top:14px">What this suggests</h3>
+    <ul class="clean">${ins.suggestions.map(s => `<li>${esc(s)}</li>`).join("")}</ul>
+    <div class="actions"><button class="ghost" onclick="exportFeedback()">⬇ Export feedback (JSON)</button></div>
+    <p class="dim"><small>Ties to the pilot's two questions: willingness-to-pay at $${CONFIG.tiers.family.priceMonthly}/mo, and whether kids come back and love it.</small></p></div>`;
+}
+
+function saveParentFeedback() {
+  const npsRaw = document.getElementById("fb-nps").value;
+  const nps = npsRaw === "–" ? null : Number(npsRaw);
+  const wtp = document.getElementById("fb-wtp").value;
+  const improve = document.getElementById("fb-improve").value.trim().slice(0, 500);
+  const comments = document.getElementById("fb-comments").value.trim().slice(0, 500);
+  if (nps == null && !wtp && !improve && !comments) return modal(`<h2>Nothing to send yet</h2><p>Add a score or a note first. 🙂</p>`);
+  S.parentFeedback = S.parentFeedback || [];
+  S.parentFeedback.unshift({ at: Date.now(), nps, wtp, improve, comments });
+  S.parentFeedback = S.parentFeedback.slice(0, 50);
+  save();
+  modal(`<h2>Thank you 💛</h2><p>Your feedback is saved on this device. It directly shapes what we build next — export it from the Feedback tab to send during the pilot.</p>
+    <div class="actions"><button class="primary" onclick="this.closest('.modal-veil').remove();screenParent('feedback')">Done</button></div>`);
+}
+
+/* Rationalise raw feedback into a small insights model + rule-based recommendations. */
+function feedbackInsights() {
+  let loved = 0, okc = 0, meh = 0;
+  S.children.forEach(c => { const f = funScore(c.id); if (f) { loved += f.loved; okc += f.ok; meh += f.meh; } });
+  const kidTotal = loved + okc + meh;
+  const pctLoved = kidTotal ? Math.round(loved / kidTotal * 100) : null;
+  const pf = S.parentFeedback || [];
+  const npsVals = pf.map(p => p.nps).filter(n => typeof n === "number");
+  const nps = npsVals.length ? Math.round(npsVals.reduce((a, b) => a + b, 0) / npsVals.length * 10) / 10 : null;
+  const wtpYes = pf.filter(p => p.wtp === "Yes").length;
+  const wtpMaybe = pf.filter(p => p.wtp === "Maybe").length;
+  /* aggregate kid reason tags across children */
+  const tags = {};
+  Object.values(S.funReasons || {}).forEach(rs => Object.entries(rs).forEach(([r, n]) => {
+    if (r.startsWith("loved:")) return; tags[r] = (tags[r] || 0) + n;
+  }));
+  const topTag = Object.entries(tags).sort((a, b) => b[1] - a[1])[0];
+
+  const suggestions = [];
+  if (kidTotal === 0) suggestions.push("No child ratings yet — the strongest signal will come once they rate a few sessions.");
+  else if (pctLoved != null && pctLoved >= 60) suggestions.push(`Kids are enjoying it (${pctLoved}% "loved") — protect what's working and keep adding variety.`);
+  else if (pctLoved != null) suggestions.push(`Enjoyment is mixed (${pctLoved}% "loved") — the reason tags below point to the fix.`);
+  if (topTag) {
+    const map = { "Too hard": "Ease difficulty (already auto-lowering levels for those kids); consider gentler intro questions.",
+      "Too easy": "Lift challenge — surface 'work ahead' more prominently for these kids.",
+      "A bit boring": "Boost variety + gamification (more celebrations already enabled for them).",
+      "Confusing": "Clarify explanations and slow the pace for affected kids.",
+      "Too long": "Offer a shorter 'quick class' option." };
+    suggestions.push(`Most common ask: "${topTag[0]}" (×${topTag[1]}). ${map[topTag[0]] || ""}`);
+  }
+  if (nps != null) suggestions.push(nps >= 8 ? `Parent NPS ${nps} is promising — candidates for referrals/testimonials.` : nps >= 6 ? `Parent NPS ${nps} is okay — the "one thing to improve" notes are the priority list.` : `Parent NPS ${nps} is low — read the improvement notes closely before scaling.`);
+  if (pf.length) suggestions.push(`Willingness-to-pay so far: ${wtpYes} Yes, ${wtpMaybe} Maybe — the core pilot question.`);
+  if (!suggestions.length) suggestions.push("Collect a few sessions and one parent response to unlock insights.");
+  return { pctLoved, nps, wtpYes, wtpMaybe, suggestions };
+}
+
+function exportFeedback() {
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    kidEnjoyment: S.fun || {}, kidReasons: S.funReasons || {},
+    parentFeedback: S.parentFeedback || [],
+    insights: feedbackInsights(),
+    northStar: S.northStar,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "sparkiq-feedback-" + todayKey() + ".json";
+  a.click();
 }
 
 /* ---------- Remote LLM (optional; parent-configured) ---------- */
@@ -2435,7 +2596,7 @@ function parentGate() {
 }
 function screenParent(tab) {
   document.documentElement.classList.remove("young");
-  const tabs = [["overview","📊 Overview"],["children","👧 Children"],["safety","🛡 Safety"],["privacy","🔏 Privacy"],["plan","💳 Plan"],["ai","🤖 AI"],["data","💾 Data"]];
+  const tabs = [["overview","📊 Overview"],["children","👧 Children"],["feedback","💬 Feedback"],["safety","🛡 Safety"],["privacy","🔏 Privacy"],["plan","💳 Plan"],["ai","🤖 AI"],["data","💾 Data"]];
   render(`
     <div class="topbar"><span class="brand">Spark<span class="iq">IQ</span> <small class="dim">Parents</small></span>
       <button class="ghost small" onclick="screenProfiles()">✕ Exit</button></div>
@@ -2498,6 +2659,7 @@ function parentTab(tab) {
       <p class="dim" style="margin-top:10px"><small>Profiles hold a nickname, year level and curriculum only — by design, nothing else.
       <b>Voice answers</b> let your child speak instead of type. Note: on iPad/iPhone the spoken audio is sent to Apple for transcription (Spark can't avoid that on iOS), so it's off by default — turn it on only if you're comfortable with that. Read-aloud (Spark's voice) is fully on-device.</small></p></div>`;
   }
+  if (tab === "feedback") return feedbackTab();
   if (tab === "safety") {
     return `<div class="card"><h2>Safety events</h2>
       <p class="dim">SparkIQ logs the <i>category</i> of safety events, never message content. Distress events deserve a gentle in-person check-in.</p>

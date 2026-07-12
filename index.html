@@ -197,6 +197,40 @@ table.stats th { color: var(--ink-dim); font-weight: 600; }
 .progressbar { height: 10px; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; }
 .progressbar > div { height: 100%; background: linear-gradient(90deg, var(--spark), var(--spark-2)); transition: width .4s ease; }
 
+/* ---- Talking avatar (the "human" feel — no camera, on-device only) ---- */
+.avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 1.3em;
+  background: radial-gradient(circle at 35% 30%, #fff6, transparent 60%), var(--pcol, var(--spark));
+  box-shadow: 0 0 0 3px rgba(255,255,255,.08), 0 4px 14px rgba(0,0,0,.4);
+  transition: transform .12s ease;
+}
+.avatar.big { width: 84px; height: 84px; font-size: 2.6em; margin: 0 auto; }
+.avatar.speaking { animation: talk .5s ease-in-out infinite; }
+@keyframes talk { 0%,100% { transform: scale(1); } 50% { transform: scale(1.09); } }
+.avatar-row { display: flex; align-items: center; gap: 10px; }
+.avatar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.avatar-wrap small { color: var(--ink-dim); font-size: .78em; }
+@media (prefers-reduced-motion: reduce) { .avatar.speaking { animation: none; } }
+
+/* Speaker + mic controls */
+.audio-btn { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14);
+  border-radius: 999px; min-height: 40px; min-width: 40px; padding: 0 12px; font-size: 1.05em; }
+.audio-btn.on { background: var(--accent-2); border-color: transparent; }
+.mic-btn { min-width: var(--tap); font-size: 1.3em; }
+.mic-btn.listening { background: #5a2340; border-color: var(--warn); animation: talk .7s ease-in-out infinite; }
+
+/* Persona picker */
+.persona-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+@media (min-width: 480px) { .persona-grid { grid-template-columns: repeat(4, 1fr); } }
+.persona-card { text-align: center; padding: 14px 8px; border-radius: var(--radius);
+  background: var(--card); border: 2px solid rgba(255,255,255,.12); cursor: pointer; transition: border-color .2s, transform .12s; }
+.persona-card:hover { transform: translateY(-2px); }
+.persona-card.sel { border-color: var(--pcol, var(--spark)); }
+.persona-card .pe { font-size: 2em; }
+.persona-card .pn { font-weight: 700; margin-top: 4px; }
+.persona-card .pb { font-size: .74em; color: var(--ink-dim); }
+
 .footer-note { text-align: center; color: var(--ink-dim); font-size: .8em; margin-top: 26px; }
 .tag { display: inline-block; font-size: .72em; font-weight: 700; letter-spacing: .05em;
   padding: 2px 8px; border-radius: 6px; background: rgba(124,227,139,.15); color: var(--good); }
@@ -249,6 +283,17 @@ const SUBJECTS = [
   { id: "communication", name: "Communication",     glyph: "🎤" },
   { id: "explore",       name: "Explore Anything",  glyph: "🔭" },
 ];
+
+/* ---------- Buddy personas: kids pick a companion with its own look, voice and vibe.
+   voice = hints for on-device text-to-speech (pitch/rate); tone = flavour for the persona's
+   spoken lines. All are Spark under the hood (same safety rules), just different characters. */
+const PERSONAS = [
+  { id: "spark",  name: "Spark",  emoji: "⭐", color: "#ffd166", blurb: "Cheery and encouraging", pitch: 1.15, rate: 1.0, hi: "Hi! I'm Spark ⭐ Ready to shine?" },
+  { id: "nova",   name: "Nova",   emoji: "🚀", color: "#8f9bff", blurb: "Bold and adventurous",   pitch: 0.95, rate: 1.05, hi: "Nova here 🚀 Let's blast off!" },
+  { id: "pip",    name: "Pip",    emoji: "🐨", color: "#7ce38b", blurb: "Gentle and patient",     pitch: 1.3,  rate: 0.95, hi: "Hello, I'm Pip 🐨 We'll take it step by step." },
+  { id: "byte",   name: "Byte",   emoji: "🤖", color: "#7de0ff", blurb: "Curious and clever",     pitch: 1.0,  rate: 1.1,  hi: "Byte online 🤖 Let's solve some puzzles!" },
+];
+function personaById(id) { return PERSONAS.find(p => p.id === id) || PERSONAS[0]; }
 
 /* Curricula (AU first, plus international — costless breadth for the pilot pool) */
 const CURRICULA = [
@@ -489,7 +534,52 @@ const THINKING_SKILLS = [
   { band: 3, gen() { const a=ri(2,9), b=ri(2,9); const code=a*10+b;
     return { skillName:"Code puzzles", q:`If A=${a} and B=${b}, and a word's value is A then B side by side as digits, what number is "AB"?`, answer:String(code), check:v=>numEq(v,code),
       hints:[`Place A in the tens spot, B in the ones spot.`, `Tens digit ${a}, ones digit ${b}.`], worked:`${a} tens and ${b} ones = ${code}.`, real:`Code-breaking questions test place value + logic together.`, trick:`Read the rule literally, one step at a time.` }; }},
+  { band: 2, gen() { const total=ri(20,40), diff=ri(4,10); const big=Math.round((total+diff)/2), small=total-big;
+    return { skillName:"Reasoning puzzles", q:`Two numbers add to ${total} and differ by ${diff}. What is the larger number?`, answer:String(big), check:v=>numEq(v,big),
+      hints:[`Add the total and the difference, then halve it.`, `(${total} + ${diff}) ÷ 2 = ?`], worked:`Larger = (${total}+${diff})÷2 = ${big}; smaller = ${small}.`, real:`A classic selective mathematical-reasoning move.`, trick:`Sum plus difference, then halve = the bigger one.` }; }},
+  { band: 2, gen() { const day=pick(["Monday","Tuesday","Wednesday","Thursday","Friday"]); const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]; const n=ri(2,4); const ans=days[(days.indexOf(day)+n)%7];
+    return { skillName:"Sequence logic", q:`If today is ${day}, what day is it ${n} days later?`, answer:ans, check:v=>normAns(v).includes(ans.toLowerCase()),
+      hints:[`Count forward on your fingers from ${day}.`, `${day} + ${n} days.`], worked:`Counting ${n} days on from ${day} lands on ${ans}.`, real:`Selective thinking-skills loves calendar and cycle puzzles.`, trick:`Count carefully — wrap around after Sunday.` }; }},
 ];
+
+/* ============================================================
+   NSW SELECTIVE — original, exam-STYLE items across the four
+   test areas. The current test is computer-based and adaptive.
+   These are ORIGINAL practice items, never real past papers.
+   ============================================================ */
+const SELECTIVE_SECTIONS = [
+  { id: "reading",   name: "Reading",                pools: ["selReading"] },
+  { id: "mathreason",name: "Mathematical Reasoning", pools: ["maths", "selMath"] },
+  { id: "thinking",  name: "Thinking Skills",        pools: ["thinking"] },
+  { id: "writing",   name: "Writing",                writing: true },
+];
+const SELECTIVE_BANK = {
+  selReading: [
+    { band: 1, skill: "Reading — inference", q: `Read: "By the time Mia reached the top of the hill, her legs were burning and her water bottle was empty — but the view made her forget all of it." What can we infer Mia felt at the top?`,
+      opts: ["Bored", "Rewarded despite the effort", "Frightened", "Angry"], a: 1,
+      hints: ["Look at the contrast word 'but'.", "Effort came first, then the view changed her feeling."], worked: `"But the view made her forget all of it" tells us the reward outweighed the pain — she felt it was worth it.`, real: `Selective reading rewards inference — reading between the lines, not just facts stated.`, trick: `Watch 'but/however' — the real point usually follows it.` },
+    { band: 1, skill: "Reading — main idea", q: `Read: "Bees may be small, but without them a third of the food we eat would vanish. As they gather nectar, they carry pollen between flowers, letting plants make fruit and seeds." The main idea is that bees…`,
+      opts: ["are dangerous", "are vital to our food supply", "make honey slowly", "prefer certain flowers"], a: 1,
+      hints: ["What is the whole passage really about?", "The first sentence states the big claim."], worked: `Every sentence supports one idea: bees are essential to the food we eat. That's the main idea.`, real: `Main-idea questions ask for the umbrella, not one detail under it.`, trick: `The main idea covers the WHOLE passage, not just one line.` },
+    { band: 2, skill: "Reading — author's purpose", q: `A text ends: "So next time you switch off a light, remember — small habits, multiplied by millions, change the planet." The author's main purpose is to…`,
+      opts: ["entertain with a story", "persuade the reader to act", "explain how switches work", "describe a light globe"], a: 1,
+      hints: ["Is the author informing, entertaining, or trying to change your behaviour?", "'Remember… change the planet' is a call to act."], worked: `The direct address and call to action show the purpose is to persuade the reader to change habits.`, real: `Knowing purpose (inform / persuade / entertain) is a core selective reading skill.`, trick: `A call to action → the author is persuading.` },
+    { band: 2, skill: "Reading — vocabulary in context", q: `"The scientist's theory was met with scepticism until the evidence became overwhelming." Here, "scepticism" most nearly means…`,
+      opts: ["excitement", "doubt", "agreement", "confusion"], a: 1,
+      hints: ["The clue is 'until the evidence became overwhelming'.", "People didn't believe it at first."], worked: `"Until the evidence became overwhelming" signals people doubted it first — scepticism means doubt.`, real: `Vocab-in-context is guessing meaning from clues, a top selective skill.`, trick: `Read around the word for the clue that pins its meaning.` },
+  ],
+  selMath: [
+    { band: 2, skill: "Multi-step reasoning", q: `A pizza is cut into 8 equal slices. Sam eats 3 slices, then Mia eats half of what's left. How many slices remain?`,
+      a: "2.5", check: v => numEq(v, 2.5),
+      hints: ["First find what's left after Sam.", "8 − 3 = 5 left; Mia eats half of 5."], worked: `After Sam: 8−3 = 5. Mia eats half of 5 = 2.5, leaving 5 − 2.5 = 2.5 slices.`, real: `Selective maths is multi-step — one operation feeds the next.`, trick: `Do it in order: one step at a time, don't rush to the end.` },
+    { band: 2, skill: "Rate reasoning", q: `If 4 taps fill a tank in 6 hours, how long would 8 taps take (same speed each)?`,
+      a: "3", check: v => numEq(v, 3),
+      hints: ["Twice as many taps → how does the time change?", "Double the taps halves the time."], worked: `8 taps is double 4 taps, so it takes half the time: 6 ÷ 2 = 3 hours.`, real: `Inverse relationships appear all over selective reasoning.`, trick: `More workers → less time (inverse). Halve or double carefully.` },
+    { band: 3, skill: "Working backwards", q: `Think of a number. Double it, add 6, and you get 20. What was the number?`,
+      a: "7", check: v => numEq(v, 7),
+      hints: ["Undo the steps in reverse.", "From 20, subtract 6, then halve."], worked: `Reverse: 20 − 6 = 14, then 14 ÷ 2 = 7.`, real: `Working backwards is a signature selective technique.`, trick: `Undo each step in reverse order to find the start.` },
+  ],
+};
 
 /* ============================================================
    CURATED BANKS — english + the three sciences + behaviour + communication.
@@ -793,7 +883,8 @@ const Engine = {
       const it = (pool.length ? pick(pool) : THINKING_SKILLS[0]).gen();
       return { skillId: "thinking:" + it.skillName, ...it };
     }
-    const bank = BANKS[subject] || [];
+    /* Selective reading/maths pools live in SELECTIVE_BANK, not BANKS. */
+    const bank = SELECTIVE_BANK[subject] || BANKS[subject] || [];
     let pool = bank.filter(i => i.band === band);
     if (!pool.length) pool = bank;
     let item;
@@ -820,6 +911,14 @@ const Engine = {
     const pools = EXAM_POOLS[examId] || ["maths", "english", "thinking"];
     const subject = pick(pools);
     return this.question(subject, band, opts);
+  },
+
+  /* NSW Selective: a question from a specific test section (original, exam-style). */
+  selectiveQuestion(sectionId, band, opts = {}) {
+    const section = SELECTIVE_SECTIONS.find(s => s.id === sectionId) || SELECTIVE_SECTIONS[0];
+    const q = this.question(pick(section.pools), band, opts);
+    q.section = section.name;
+    return q;
   },
 
   exploreAnswer(text) {
@@ -985,6 +1084,57 @@ function starfield() {
 }
 
 /* ============================================================
+   SPEECH — on-device text-to-speech (output) + optional voice
+   input. TTS is 100% on-device (Web Speech synthesis). Voice
+   INPUT is parent-gated because on iOS the audio is sent to
+   Apple for transcription — a privacy note the parent must opt into.
+   ============================================================ */
+const TTS = {
+  supported: typeof speechSynthesis !== "undefined",
+  voices: [],
+  load() { if (this.supported) { this.voices = speechSynthesis.getVoices() || []; } },
+  pickVoice() {
+    if (!this.voices.length) this.load();
+    // Prefer an English (AU/GB/US) voice for an Aussie kid
+    return this.voices.find(v => /en-AU/i.test(v.lang)) ||
+           this.voices.find(v => /en-GB/i.test(v.lang)) ||
+           this.voices.find(v => /^en/i.test(v.lang)) || this.voices[0] || null;
+  },
+  speak(text, persona) {
+    if (!this.supported) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(String(text).replace(/[⭐🚀🐨🤖🌟✨🎉💛🔭🧰💡🎤📐📖⚛️🧪🌱🧭🏁🎯🔁🎓😄🙂😕🌏🧠📝🎁🔥🌙💪✔✘→←]/g, "").slice(0, 400));
+      const v = this.pickVoice(); if (v) u.voice = v;
+      if (persona) { u.pitch = persona.pitch; u.rate = persona.rate; }
+      u.onstart = () => document.querySelectorAll(".avatar").forEach(a => a.classList.add("speaking"));
+      u.onend = () => document.querySelectorAll(".avatar").forEach(a => a.classList.remove("speaking"));
+      speechSynthesis.speak(u);
+    } catch (e) { /* speech is never worth an error */ }
+  },
+  stop() { if (this.supported) { try { speechSynthesis.cancel(); } catch (e) {} } document.querySelectorAll(".avatar").forEach(a => a.classList.remove("speaking")); },
+};
+if (TTS.supported) { TTS.load(); speechSynthesis.onvoiceschanged = () => TTS.load(); }
+
+const STT = {
+  supported: typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition),
+  rec: null, listening: false,
+  start(onResult, onEnd) {
+    if (!this.supported) { onEnd && onEnd(); return false; }
+    try {
+      const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+      this.rec = new R();
+      this.rec.lang = "en-AU"; this.rec.interimResults = false; this.rec.maxAlternatives = 1;
+      this.rec.onresult = e => { const t = e.results[0][0].transcript; onResult && onResult(t); };
+      this.rec.onend = () => { this.listening = false; onEnd && onEnd(); };
+      this.rec.onerror = () => { this.listening = false; onEnd && onEnd(); };
+      this.rec.start(); this.listening = true; return true;
+    } catch (e) { this.listening = false; onEnd && onEnd(); return false; }
+  },
+  stop() { try { this.rec && this.rec.stop(); } catch (e) {} this.listening = false; },
+};
+
+/* ============================================================
    ONBOARDING
    ============================================================ */
 function screenWelcome() {
@@ -1041,25 +1191,31 @@ function screenAddChild(first) {
         <div><label>Curriculum</label>
           <select id="ch-curr">${CURRICULA.map(c=>`<option value="${c.id}">${c.label}</option>`).join("")}</select></div>
       </div>
-      <label>Pick a buddy avatar</label>
-      <div class="row" id="ch-avs">${avatars.map((a,i)=>`<button class="small ${i===0?"primary":""}" data-av="${a}" onclick="pickAv(this)" style="font-size:1.4em">${a}</button>`).join("")}</div>
+      <label>Pick your learning buddy <span class="hint">(each has its own voice)</span></label>
+      <div class="persona-grid" id="ch-personas">${PERSONAS.map((p,i)=>`
+        <div class="persona-card ${i===0?"sel":""}" data-p="${p.id}" style="--pcol:${p.color}" onclick="pickPersona(this)">
+          <div class="pe">${p.emoji}</div><div class="pn">${p.name}</div><div class="pb">${p.blurb}</div>
+          <button class="small ghost" style="margin-top:8px" onclick="event.stopPropagation();TTS.speak('${p.hi.replace(/'/g,"")}', personaById('${p.id}'))">🔊 Hear</button>
+        </div>`).join("")}</div>
       <div class="actions"><button class="primary" onclick="finishAddChild()">Let's go! ⭐</button></div>
     </div>`);
 }
-function pickAv(btn) {
-  document.querySelectorAll("#ch-avs button").forEach(b => b.classList.remove("primary"));
-  btn.classList.add("primary");
+function pickPersona(card) {
+  document.querySelectorAll("#ch-personas .persona-card").forEach(c => c.classList.remove("sel"));
+  card.classList.add("sel");
 }
 function finishAddChild() {
   const nick = document.getElementById("ch-nick").value.trim();
   if (nick.length < 2) return modal(`<h2>Pick a nickname</h2><p>Two letters or more — anything fun works!</p>`);
   if (/\d{4,}/.test(nick)) return modal(`<h2>Keep it simple</h2><p>Nicknames shouldn't contain long numbers.</p>`);
   const year = Number(document.getElementById("ch-year").value);
+  const persona = document.querySelector("#ch-personas .persona-card.sel")?.dataset.p || "spark";
   const child = {
     id: uuid(), nickname: nick, year,
     curriculum: document.getElementById("ch-curr").value,
-    avatar: document.querySelector("#ch-avs button.primary")?.dataset.av || "🦘",
+    persona, avatar: personaById(persona).emoji,
     young: year <= 5,
+    readAloud: TTS.supported, // voice on by default where the device supports it
   };
   S.children.push(child); save();
   screenHome(child.id);
@@ -1192,6 +1348,7 @@ function startSession(childId, subject, forceMode) {
   render(`
     <div class="topbar">
       <button class="ghost small" onclick="endSession()">← Done</button>
+      ${avatarHeader(c)}
       <span class="chip">${isExplore ? "🔭 Explore" : subj.glyph + " " + subj.name}</span>
       <span class="row"><span class="chip timerchip" id="examclock" style="display:none"></span>
       <span class="chip xp" id="sesxp">+0 XP</span></span>
@@ -1203,6 +1360,7 @@ function startSession(childId, subject, forceMode) {
       <div class="inputbar" id="ibar">
         <input id="kidin" maxlength="${CONFIG.maxMsgLen}" placeholder="Type here…" autocomplete="off"
           onkeydown="if(event.key==='Enter')submitKid()">
+        ${micButtonHtml(c)}
         <button class="primary" onclick="submitKid()">Send</button>
       </div>
     </div>`);
@@ -1223,6 +1381,39 @@ function say(text, mini) {
   d.textContent = text;
   if (mini) { const s = document.createElement("small"); s.className = "mini"; s.textContent = mini; d.appendChild(s); }
   m.appendChild(d); d.scrollIntoView({ behavior: "smooth", block: "end" });
+  if (SES && SES.child && SES.child.readAloud) TTS.speak(text, personaFor(SES.child));
+}
+function personaFor(child) { return personaById(child && child.persona); }
+/* Talking avatar + read-aloud toggle for a session header. */
+function avatarHeader(child) {
+  const p = personaFor(child);
+  const ra = child.readAloud ? "on" : "";
+  const spk = TTS.supported ? `<button class="audio-btn ${ra}" id="spk-btn" title="Read aloud" onclick="toggleReadAloud('${child.id}')">${child.readAloud ? "🔊" : "🔈"}</button>` : "";
+  return `<span class="avatar-row"><span class="avatar" style="--pcol:${p.color}">${p.emoji}</span>${spk}</span>`;
+}
+function toggleReadAloud(childId) {
+  const c = S.children.find(x => x.id === childId); if (!c) return;
+  c.readAloud = !c.readAloud; save();
+  const b = document.getElementById("spk-btn");
+  if (b) { b.classList.toggle("on", c.readAloud); b.textContent = c.readAloud ? "🔊" : "🔈"; }
+  if (!c.readAloud) TTS.stop();
+  else if (SES && SES.item) TTS.speak(SES.item.q, personaFor(c));
+}
+/* Mic button (voice answers) — only when the parent has enabled voice input. */
+function micButtonHtml(child) {
+  if (!child.voiceInput || !STT.supported) return "";
+  return `<button class="mic-btn" id="mic-btn" title="Speak your answer" onclick="toggleMic()">🎙️</button>`;
+}
+function toggleMic() {
+  const btn = document.getElementById("mic-btn"); const inp = document.getElementById("kidin");
+  if (STT.listening) { STT.stop(); btn && btn.classList.remove("listening"); return; }
+  TTS.stop();
+  const ok = STT.start(
+    text => { if (inp) { inp.value = text; } },
+    () => { btn && btn.classList.remove("listening"); if (inp && inp.value.trim()) submitKid(); }
+  );
+  if (ok) btn && btn.classList.add("listening");
+  else sys("Voice answers aren't available on this device — you can still type. 🙂");
 }
 function kidSay(text) {
   const m = document.getElementById("msgs"); if (!m) return;
@@ -1361,6 +1552,7 @@ function handleAnswer(value, isTyped) {
   if (SES.mode === "quiz") { SES.answered = true; return recordQuiz(correct); }
   if (SES.mode === "review") { SES.answered = true; return recordReview(correct); }
   if (SES.mode === "exam") return recordExam(correct, false);
+  if (SES.mode === "selective") return recordSelective(correct);
   /* learn / challenge */
   bumpStat(it.skillId, correct);
   if (correct) {
@@ -1375,15 +1567,32 @@ function handleAnswer(value, isTyped) {
     addXp(CONFIG.xpAttempt);
     if (SES.attempts >= 2) {
       SES.answered = true;
-      say(GREETINGS.encourage() + "\n\n" + it.worked);
       queueReview(it);
-      afterWorked();
+      offerRevision(it, () => nextLearn(it.skillId));
     } else {
       say(GREETINGS.encourage() + " " + it.hints[Math.min(SES.hintIdx, it.hints.length - 1)]);
       SES.hintIdx = Math.min(SES.hintIdx + 1, it.hints.length);
       if (it.opts) setOpts(it.opts);
     }
   }
+}
+/* Mistake recovery: walk through a WAY of solving it, then offer to revise the concept —
+   directly serving "when a kid makes a mistake, help them solve it and revise the idea". */
+function offerRevision(it, onNext) {
+  setOpts([]); showInput(false);
+  say(`No worries — the answer is ${it.answer}. Here's a way to get there:\n\n${it.worked}`);
+  SES.missStreak = (SES.missStreak || 0) + 1;
+  const trickLine = it.trick ? `\n\n🧠 Handy way to remember: ${it.trick}` : "";
+  const acts = [["Try a similar one 💪", () => { SES.missStreak = 0; onNext(); }]];
+  /* If they've missed a couple in a row, proactively offer a concept refresh. */
+  if (SES.missStreak >= 2 && it.real) {
+    say(`Let's lock this in.${trickLine}\n\n🌏 Where it shows up: ${it.real}`);
+    acts.push(["Got it, keep going →", () => { SES.missStreak = 0; onNext(); }]);
+  } else {
+    if (it.trick) say(`🧠 A way to remember it: ${it.trick}`);
+    acts.push(["Something new →", () => { SES.missStreak = 0; nextLearn(); }]);
+  }
+  setActions(acts);
 }
 function afterWorked() {
   setOpts([]); showInput(false);
@@ -1605,13 +1814,79 @@ function screenExamPrep(childId) {
       <div class="actions" style="margin-top:10px">
         ${e.coachOnly ? "" : `<button class="primary" onclick="startExamSession('${childId}','${e.id}')">📝 Practice set (timed)</button>`}
         <button class="ghost" onclick="startExamCoach('${childId}','${e.id}')">🎓 Coach me</button>
-      </div></div>`).join("")}
+      </div>
+      ${e.id === "selective" ? `<div class="actions" style="margin-top:8px"><button class="spark" onclick="screenSelective('${childId}')">🏆 Practise by section (Reading · Maths · Thinking · Writing)</button></div>` : ""}
+      </div>`).join("")}
     <div class="card">
       <div class="row spread"><div><b>✍️ Writing practice</b><br><small class="dim">A prompt, then marker-style feedback</small></div>
       <button class="ghost small" onclick="startWritingSession('${childId}')">Start</button></div></div>`);
 }
 function startExamCoach(childId, examId) {
   startExamSession(childId, examId, true);
+}
+/* NSW Selective — practise by test section, matching the current computer-based format. */
+function screenSelective(childId) {
+  const c = S.children.find(x => x.id === childId);
+  if (!c) return screenProfiles();
+  document.documentElement.classList.toggle("young", !!c.young);
+  render(`
+    <div class="topbar">
+      <button class="ghost small" onclick="screenExamPrep('${childId}')">← Exam prep</button>
+      <span class="chip">🏆 NSW Selective</span>
+    </div>
+    <div class="card"><h2>🏆 NSW Selective practice</h2>
+      <p class="dim">The Selective test is computer-based and covers four areas. Practise each one below — original,
+      exam-style questions with full worked solutions when you get stuck. When you make a mistake, I'll show you a way
+      to solve it and revise the idea. <b>These are original practice questions, not real past papers.</b>
+      For the official format and dates, check the NSW Department of Education website with a parent.</p></div>
+    ${SELECTIVE_SECTIONS.map(s => `<div class="card">
+      <div class="row spread"><div><b>${s.name}</b></div>
+      <button class="primary small" onclick="${s.writing ? `startWritingSession('${childId}')` : `startSelectiveSession('${childId}','${s.id}')`}">Practise</button></div></div>`).join("")}`);
+}
+function startSelectiveSession(childId, sectionId) {
+  const c = S.children.find(x => x.id === childId);
+  const section = SELECTIVE_SECTIONS.find(s => s.id === sectionId);
+  SES = examSessionShell(childId, c, "selective");
+  SES.selectiveSection = sectionId;
+  renderSessionShell(c, "🏆 " + section.name);
+  SES.selCount = 0; SES.selCorrect = 0;
+  say(`🏆 ${section.name} practice — Selective style. Take your time; if you slip, I'll show you how to crack it and we'll revise the idea. Ready?`,
+    "Original practice questions — not real past papers");
+  setTimeout(nextSelective, 900);
+}
+function nextSelective() {
+  if (SES.selCount >= 6) return finishSelective();
+  SES.selCount++;
+  presentItem(Engine.selectiveQuestion(SES.selectiveSection, Math.max(1, SES.band), { avoid: SES.recentQs }));
+}
+function recordSelective(correct) {
+  if (SES.answered) return; /* guard double-taps once the item is resolved */
+  bumpStat(SES.item.skillId, correct);
+  if (correct) {
+    SES.answered = true; SES.selCorrect++; SES.missStreak = 0;
+    say(GREETINGS.celebrate()); addXp(CONFIG.xpCorrect);
+    setTimeout(nextSelective, 900);
+  } else {
+    SES.attempts++;
+    if (SES.attempts >= 2) {
+      SES.answered = true;
+      queueReview(SES.item);
+      offerRevision(SES.item, () => nextSelective());
+    } else {
+      addXp(CONFIG.xpAttempt);
+      say(GREETINGS.encourage() + " " + SES.item.hints[Math.min(SES.hintIdx, SES.item.hints.length - 1)]);
+      SES.hintIdx = Math.min(SES.hintIdx + 1, SES.item.hints.length);
+      if (SES.item.opts) setOpts(SES.item.opts);
+    }
+  }
+}
+function finishSelective() {
+  const pct = Math.round(SES.selCorrect / SES.selCount * 100);
+  if (pct >= 70) { confetti(); awardBadge(SES.childId, "Selective Trainer"); }
+  const cid = SES.childId, sec = SES.selectiveSection;
+  say(`🏆 ${SELECTIVE_SECTIONS.find(s=>s.id===sec).name}: ${SES.selCorrect}/${SES.selCount} (${pct}%). ${pct >= 70 ? "Strong — that's Selective-ready thinking!" : "Great effort — the ones you missed are in your review queue so they'll come back and stick."}\nConsistency across weeks beats any single score, and I can't promise a result — but practice makes exam day feel familiar instead of scary.`);
+  setOpts([]); showInput(false);
+  setActions([["Another round 🏆", () => startSelectiveSession(cid, sec)], ["Sections 📋", () => { endSessionSilently(); screenSelective(cid); }]]);
 }
 function startWritingSession(childId) {
   const c = S.children.find(x => x.id === childId);
@@ -1636,6 +1911,7 @@ function renderSessionShell(c, label) {
   render(`
     <div class="topbar">
       <button class="ghost small" onclick="endSession()">← Done</button>
+      ${avatarHeader(c)}
       <span class="chip">${label}</span>
       <span class="row"><span class="chip timerchip" id="examclock" style="display:none"></span>
       <span class="chip xp" id="sesxp">+0 XP</span></span>
@@ -1647,6 +1923,7 @@ function renderSessionShell(c, label) {
       <div class="inputbar" id="ibar">
         <input id="kidin" maxlength="${CONFIG.maxMsgLen}" placeholder="Type here…" autocomplete="off"
           onkeydown="if(event.key==='Enter')submitKid()">
+        ${micButtonHtml(c)}
         <button class="primary" onclick="submitKid()">Send</button>
       </div>
     </div>`);
@@ -1864,7 +2141,7 @@ function openTools() {
 
 /* ---------- End session ---------- */
 function endSession(afterNudge) {
-  clearInterval(window._nudge); clearInterval(SES?.examTimer);
+  clearInterval(window._nudge); clearInterval(SES?.examTimer); TTS.stop();
   if (SES) {
     SES.sessionRow.end = Date.now();
     const skills = [...SES.skillsSeen].slice(0, 3);
@@ -2066,13 +2343,19 @@ function parentTab(tab) {
   }
   if (tab === "children") {
     return `<div class="card"><h2>Learner profiles</h2>
-      ${S.children.map(c => `<div class="row spread" style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)">
-        <div>${c.avatar} <b>${esc(c.nickname)}</b> <small class="dim">Year ${c.year} · ${c.curriculum}${c.young ? " · Young mode" : ""}</small></div>
-        <div class="row">
-        <button class="small ghost" onclick="toggleYoung('${c.id}')">${c.young ? "Standard UI" : "Young mode"}</button>
-        <button class="small danger" onclick="removeChild('${c.id}')">Remove</button></div></div>`).join("")}
+      ${S.children.map(c => `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)">
+        <div class="row spread">
+          <div>${personaFor(c).emoji} <b>${esc(c.nickname)}</b> <small class="dim">Year ${c.year} · ${c.curriculum} · buddy ${personaFor(c).name}${c.young ? " · Young mode" : ""}</small></div>
+          <button class="small danger" onclick="removeChild('${c.id}')">Remove</button>
+        </div>
+        <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+          <button class="small ghost" onclick="toggleYoung('${c.id}')">${c.young ? "Standard UI" : "Young mode"}</button>
+          <button class="small ghost" onclick="cycleBuddy('${c.id}')">🔄 Change buddy</button>
+          <button class="small ${c.voiceInput ? "primary" : "ghost"}" onclick="toggleVoiceInput('${c.id}')">🎙️ Voice answers: ${c.voiceInput ? "on" : "off"}</button>
+        </div></div>`).join("")}
       <div class="actions"><button class="primary" onclick="screenAddChild()">＋ Add learner</button></div>
-      <p class="dim" style="margin-top:10px"><small>Profiles hold a nickname, year level and curriculum only — by design, nothing else.</small></p></div>`;
+      <p class="dim" style="margin-top:10px"><small>Profiles hold a nickname, year level and curriculum only — by design, nothing else.
+      <b>Voice answers</b> let your child speak instead of type. Note: on iPad/iPhone the spoken audio is sent to Apple for transcription (Spark can't avoid that on iOS), so it's off by default — turn it on only if you're comfortable with that. Read-aloud (Spark's voice) is fully on-device.</small></p></div>`;
   }
   if (tab === "safety") {
     return `<div class="card"><h2>Safety events</h2>
@@ -2199,6 +2482,15 @@ function bindAiTab() {
   };
 }
 function toggleYoung(id) { const c = S.children.find(x => x.id === id); c.young = !c.young; save(); screenParent("children"); }
+function toggleVoiceInput(id) { const c = S.children.find(x => x.id === id); c.voiceInput = !c.voiceInput; save(); screenParent("children"); }
+function cycleBuddy(id) {
+  const c = S.children.find(x => x.id === id);
+  const i = PERSONAS.findIndex(p => p.id === c.persona);
+  const next = PERSONAS[(i + 1) % PERSONAS.length];
+  c.persona = next.id; c.avatar = next.emoji; save();
+  TTS.speak(next.hi, next);
+  screenParent("children");
+}
 function removeChild(id) {
   const c = S.children.find(x => x.id === id);
   modal(`<h2>Remove ${esc(c.nickname)}?</h2><p class="dim">This deletes their profile and learning history from this device. This cannot be undone.</p>

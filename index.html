@@ -618,6 +618,45 @@ const THINKING_SKILLS = [
   { band: 2, gen() { const day=pick(["Monday","Tuesday","Wednesday","Thursday","Friday"]); const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]; const n=ri(2,4); const ans=days[(days.indexOf(day)+n)%7];
     return { skillName:"Sequence logic", q:`If today is ${day}, what day is it ${n} days later?`, answer:ans, check:v=>normAns(v).includes(ans.toLowerCase()),
       hints:[`Count forward on your fingers from ${day}.`, `${day} + ${n} days.`], worked:`Counting ${n} days on from ${day} lands on ${ans}.`, real:`Selective thinking-skills loves calendar and cycle puzzles.`, trick:`Count carefully — wrap around after Sunday.` }; }},
+  /* --- Expanded thinking-skills coverage for OC/Selective (all generator-based = infinite) --- */
+  { band: 2, gen() { const names=shuffle(["Zara","Finn","Ivy","Noah"]); // ordering from clues
+    return { skillName:"Ordering from clues", q:`Four kids queue for the canteen. ${names[0]} is in front of ${names[1]}. ${names[2]} is directly behind ${names[3]}. ${names[1]} is in front of ${names[3]}. Who is LAST in the queue?`,
+      answer: names[2], check: v => normAns(v).includes(names[2].toLowerCase()),
+      hints:[`Build the queue one clue at a time.`, `${names[0]} → ${names[1]} → ${names[3]} → ${names[2]}.`],
+      worked:`From the clues the order is ${names[0]}, ${names[1]}, ${names[3]}, ${names[2]} — so ${names[2]} is last.`,
+      real:`Ordering puzzles are a Selective thinking-skills staple.`, trick:`Draw the line first; place each clue; re-read every clue at the end to check.` }; }},
+  { band: 2, gen() { const a=["dogs","cats","parrots"][ri(0,2)], hasA=`some ${a} are fast`, conclusion=pick([true,false]); // syllogism validity
+    const q = conclusion
+      ? `All ${a} are animals. Some ${a} are fast. Which conclusion MUST be true?`
+      : `All ${a} are animals. Some animals are fast. Which conclusion MUST be true?`;
+    const opts = conclusion
+      ? [`Some animals are fast`, `All animals are ${a}`, `No animals are slow`, `All fast things are ${a}`]
+      : [`We can't be sure any ${a} are fast`, `Some ${a} are fast`, `All ${a} are fast`, `No ${a} are fast`];
+    return { skillName:"Logical deduction", q, opts, answer: opts[0], check: v => Number(v) === 0,
+      hints:[`"Must be true" means true in EVERY possible case.`, `Careful: "some animals are fast" doesn't tell us WHICH animals.`],
+      worked: conclusion ? `Fast ${a} are animals, so some animals are fast — guaranteed. The others could be false.` : `The fast animals might all be other species — we can't conclude anything about ${a}.`,
+      real:`Exactly how Selective tests deductive validity — the #1 thinking-skills question type.`, trick:`"Must be true" = no imaginable world where it's false. Try to invent a counter-example!` }; }},
+  { band: 3, gen() { const t=ri(20,30), c=ri(8,12), both=ri(3,6), tOnly=t-both, cOnly=c-both, total=tOnly+cOnly+both+ri(2,5); const neither=total-(tOnly+cOnly+both); // Venn counting
+    return { skillName:"Venn diagram counting", q:`In a class of ${total}, ${t} play tennis and ${c} play cricket; ${both} play both. How many play NEITHER sport?`,
+      answer:String(neither), check:v=>numEq(v,neither),
+      hints:[`Draw two overlapping circles; put ${both} in the overlap FIRST.`, `Tennis-only = ${t}−${both}; cricket-only = ${c}−${both}. Add all three groups, subtract from ${total}.`],
+      worked:`Tennis-only ${tOnly} + cricket-only ${cOnly} + both ${both} = ${tOnly+cOnly+both}. Neither = ${total} − ${tOnly+cOnly+both} = ${neither}.`,
+      real:`Overlap counting appears in every Selective paper.`, trick:`Always fill the OVERLAP first, then work outward.` }; }},
+  { band: 3, gen() { const liar=pick(["Ben","Mia"]); const truther = liar==="Ben"?"Mia":"Ben"; // truth-teller/liar
+    return { skillName:"Truth-tellers & liars", q:`${truther} always tells the truth; ${liar} always lies. One of them says: "We are BOTH liars." Who said it?`,
+      answer: liar, check: v => normAns(v).includes(liar.toLowerCase()),
+      hints:[`Test each speaker separately and look for a contradiction.`, `Could ${truther} truthfully say "we are both liars"?`],
+      worked:`If ${truther} said it, it would have to be true — but ${truther} tells the truth, so "both liars" is false. Contradiction. If ${liar} said it, the statement is a lie — and it IS false (only one of them lies). Consistent! So it was ${liar}.`,
+      real:`Case-checking puzzles like this train rigorous reasoning — a Selective favourite.`, trick:`Assume a speaker, follow the logic; if you hit a contradiction, it's the other one.` }; }},
+  { band: 3, gen() { const claim=pick([
+      { c:`"Our school should ban homework because students at schools without homework are happier."`, w:`Happiness might come from something else those schools do`, s:[`A survey shows homework causes stress`, `Happy students learn faster`, `Homework takes time`] },
+      { c:`"Everyone should ride bikes to school because it's good exercise."`, w:`Some students live too far away to ride safely`, s:[`Exercise improves focus in class`, `Bikes are cheaper than buses`, `Cycling is fun`] },
+    ]);
+    const opts = shuffle([claim.w, ...claim.s]); const ansIdx = opts.indexOf(claim.w);
+    return { skillName:"Evaluating arguments", q:`${claim.c}\n\nWhich statement most WEAKENS this argument?`, opts, answer: claim.w, check: v => Number(v) === ansIdx,
+      hints:[`To weaken an argument, attack the link between its reason and its conclusion.`, `Which option makes the reason less convincing, rather than adding a new point?`],
+      worked:`"${claim.w}" breaks the argument's link — the other options support or merely restate it.`,
+      real:`Strengthen/weaken questions are core Selective critical-thinking material.`, trick:`Find the argument's bridge, then look for the option that blows up the bridge.` }; }},
 ];
 
 /* ============================================================
@@ -674,8 +713,41 @@ const SELECTIVE_BANK = {
     { band: 3, skill: "Logical maths", q: `In a race, Kim finished ahead of Sam but behind Tara. Who came first?`,
       a: "Tara", check: v => normAns(v).includes("tara"),
       hints: ["Order them from first to last.", "Tara is ahead of Kim, who is ahead of Sam."], worked: `Tara → Kim → Sam. Tara came first.`, real: `Ordering from clues is half of the thinking-skills section.`, trick: `Draw the finish line and place each clue.` },
+    { band: 2, skill: "Reading — poetry", q: `Read this couplet: "The moon, a silver coin flipped high, / spins slowly through the velvet sky." The poet compares the moon to a coin using…`,
+      opts: ["a metaphor", "alliteration", "onomatopoeia", "rhyme only"], a: 0,
+      hints: ["Does it say the moon is LIKE a coin, or call it one directly?", "'The moon, a silver coin' states it directly."], worked: `Calling the moon "a silver coin" directly is a metaphor (no 'like' or 'as').`, real: `Selective reading includes poetry — technique + effect questions.`, trick: `Direct comparison = metaphor; 'like/as' = simile.` },
+    { band: 2, skill: "Reading — non-fiction", q: `"Wombats dig burrows up to 30 m long. Their backwards-facing pouch keeps dirt away from their joeys while digging." Why does the pouch face backwards?`,
+      opts: ["To keep the joey warm", "So dirt doesn't get in while digging", "To help the wombat run", "To carry food"], a: 1,
+      hints: ["The answer is stated — find the connecting phrase.", "'…keeps dirt away from their joeys WHILE DIGGING.'"], worked: `The text links the backwards pouch to digging: it stops dirt filling the pouch.`, real: `Factual retrieval + cause-effect is classic Selective non-fiction reading.`, trick: `For 'why' questions, hunt for because/so/while phrases.` },
+    { band: 3, skill: "Reading — cloze", q: `Choose the word that best completes the sentence: "The scientist's results were so ______ that other researchers repeated the experiment to check them."`,
+      opts: ["surprising", "boring", "expected", "colourful"], a: 0,
+      hints: ["Why would others rush to double-check results?", "Results you don't believe at first are…"], worked: `Only "surprising" explains why others felt the need to verify.`, real: `Cloze (fill-the-gap) questions test vocabulary + logic together.`, trick: `Read the WHOLE sentence first; the clue is usually after the gap.` },
   ],
 };
+/* Extra selective mathematical-reasoning GENERATORS (infinite practice). Merged into the
+   selMath pool at question time. */
+const SELECTIVE_MATH_GENS = [
+  { band: 2, gen() { const speed=pick([40,50,60,80]), hrs=ri(2,4); const d=speed*hrs;
+    return { skillName:"Rates & speed", q:`A train travels at ${speed} km/h for ${hrs} hours. How far does it go?`, answer:String(d), check:v=>numEq(v,d),
+      hints:[`Distance = speed × time.`, `${speed} × ${hrs} = ?`], worked:`${speed} km each hour for ${hrs} hours → ${speed}×${hrs} = ${d} km.`,
+      real:`Rate problems anchor the Selective maths section.`, trick:`Speed is "km per ONE hour" — multiply by the hours you have.` }; }},
+  { band: 2, gen() { const x=ri(4,12), a=ri(2,5), b=ri(3,9); const end=(x+b)*a;
+    return { skillName:"Working backwards", q:`I think of a number, add ${b}, then multiply by ${a}, and get ${end}. What was my number?`, answer:String(x), check:v=>numEq(v,x),
+      hints:[`Undo the steps in REVERSE order.`, `${end} ÷ ${a} = ${end/a}, then subtract ${b}.`], worked:`Reverse: ${end} ÷ ${a} = ${end/a}; ${end/a} − ${b} = ${x}.`,
+      real:`Working backwards is a signature Selective technique.`, trick:`Undo the LAST step first — like rewinding a video.` }; }},
+  { band: 3, gen() { const now=ri(8,12), diff=ri(18,26); const yrs=ri(3,6); const ans=now+diff+yrs;
+    return { skillName:"Age puzzles", q:`Ali is ${now}. His mum is ${diff} years older. How old will his mum be in ${yrs} years?`, answer:String(ans), check:v=>numEq(v,ans),
+      hints:[`First find Mum's age NOW.`, `Mum now = ${now}+${diff} = ${now+diff}; then add ${yrs}.`], worked:`Mum is ${now+diff} now; in ${yrs} years she'll be ${ans}.`,
+      real:`Age problems chain two easy steps — the exam tests whether you keep track.`, trick:`Write each person's age NOW before touching the future.` }; }},
+  { band: 3, gen() { const per=ri(6,9), r=ri(1,per-1), n=ri(6,10); const total=per*n+r;
+    return { skillName:"Remainder reasoning", q:`${total} students sit in rows of ${per}. How many students are in the incomplete last row?`, answer:String(r), check:v=>numEq(v,r),
+      hints:[`Divide and look at what's LEFT OVER.`, `${total} ÷ ${per} = ${n} remainder ?`], worked:`${per}×${n}=${per*n}; ${total}−${per*n}=${r} in the last row.`,
+      real:`Remainders decide buses, teams and rows — beloved by Selective examiners.`, trick:`The remainder is the answer more often than the quotient — read the question twice!` }; }},
+  { band: 3, gen() { const w=ri(3,6), l=w*2; const peri=2*(l+w);
+    return { skillName:"Geometry reasoning", q:`A rectangle is twice as long as it is wide. Its width is ${w} cm. What is its perimeter?`, answer:String(peri), check:v=>numEq(v,peri),
+      hints:[`Find the length first.`, `Length = 2×${w} = ${l}. Perimeter = 2×(l+w).`], worked:`l=${l}, w=${w}; perimeter = 2×(${l}+${w}) = ${peri} cm.`,
+      real:`Multi-step geometry: translate words → dimensions → formula.`, trick:`Turn the words into a labelled sketch before calculating.` }; }},
+];
 
 /* ============================================================
    CURATED BANKS — english + the three sciences + behaviour + communication.
@@ -885,6 +957,39 @@ const EXPLORE_BANK = [
 ];
 
 /* ============================================================
+   TEACH CARDS — intuition-first concept teaching, modelled on the
+   world's best explainers: a HOOK (why care), an ANALOGY that makes
+   the idea feel obvious (Feynman), then the tiny formal MODEL — only
+   after intuition (3Blue1Brown), in small steps (Khan/Rosenshine).
+   Shown the first time a skill appears, and again on "Confusing".
+   ============================================================ */
+const TEACH = {
+  "frac0": `🍕 Imagine one pizza and four hungry friends. A fraction is just a fair-share instruction: the BOTTOM number says how many equal pieces to cut, the TOP says how many pieces you take. That's the whole secret — cut, then take.`,
+  "eqfrac": `🍕 Cut a pizza in 2 and take 1 piece — or cut the SAME pizza into 4 and take 2. Same amount of pizza! Fractions are nicknames: 1/2 and 2/4 name the same amount. Multiply top and bottom by the same number and the VALUE never changes — only the name does.`,
+  "dec1": `💰 Decimals are just money. $3.75 means 3 whole dollars, 7 dimes, 5 cents. The decimal point is a wall: whole things on the left, pieces of things on the right. Line up the walls and adding decimals is exactly adding money.`,
+  "pct1": `💯 "Per cent" literally means "out of every hundred". Picture a chocolate block with 100 squares — 25% is just 25 squares. And here's the power move: 10% (10 squares) is easy to find — divide by 10 — and every other percentage builds from it.`,
+  "area1": `🟩 Area asks "how many 1-metre carpet tiles cover the floor?" — count rows × tiles-per-row, done. Perimeter asks "how far do you walk around the fence?" Two totally different questions about the same shape — that's why we have two formulas.`,
+  "int2": `🌡️ Negative numbers are floors below ground in a lift. −3 means "3 floors underground". Adding = going up, subtracting = going down. And subtracting a NEGATIVE? That's removing a weight — the balloon rises. −5 − (−2) means "take away 2 floors of down": you end up higher.`,
+  "lineq2": `⚖️ An equation is a balanced seesaw. The = sign says both sides weigh the same. You can do ANYTHING you like — add, subtract, halve — as long as you do it to BOTH sides. Solving means gently un-wrapping x, one layer at a time, keeping the seesaw level the whole way.`,
+  "ratio2": `🧃 Ratios are recipes. 2:3 cordial-to-water means every "batch" is 2 cups + 3 cups. Big jug? Just make more batches. Every ratio problem is secretly the question: "how many batches am I making?"`,
+  "prob2": `🎲 Probability is a fraction with a story: what-you-WANT over everything-that-COULD-happen. 3 red marbles in a bag of 10? P = 3/10. The whole topic is counting two lists — wants and totals — carefully.`,
+  "expand3": `☔ The number outside brackets is a rain cloud: it rains down on EVERYTHING inside. 3(x + 4) means three x's AND three 4's. Miss one and the maths leaks — that's really all "expanding" means.`,
+  "pyth3": `📐 Walk 3 blocks east and 4 blocks north. How far are you from home as the crow flies? Pythagoras answered it 2,500 years ago: square the two short sides, add, square-root. a² + b² = c² isn't a spell — it's the shortcut-across-the-park formula.`,
+  "index3": `✂️ 2⁵ is just shorthand for 2×2×2×2×2 — "five copies multiplied". So 2³ × 2² = five copies total = 2⁵. Same base? Just ADD the counts. Every index law falls out of writing the copies down.`,
+  "simeq3": `🕵️ Two unknowns, two clues — a detective story. The trick: combine the clues so one suspect vanishes. If x+y=10 and x−y=4, ADD them: the y's cancel (+y and −y annihilate) and 2x=14 confesses everything.`,
+  "func4": `🥤 A function is a vending machine: put a number in the slot, a number drops out — same input, same output, every single time. f(3) just means "press button 3 and see what falls out". Everything about functions is asking what the machine does.`,
+  "diff4": `🏎️ Your speedo doesn't show where you are — it shows how FAST that's changing. That's a derivative: the "rate of change" of anything. Differentiation is building a speedo for any curve.`,
+  "log4": `🔍 A logarithm is a power detector. log₂(8) asks one question: "2 to WHAT power makes 8?" Answer: 3. That's it — logs UNDO powers the way division undoes multiplication.`,
+  "money0": `🪙 Change is a gap, not a subtraction sum: count UP from the price to what you paid. $3.60 → $4 is 40c, → $5 is another $1. Shopkeepers count up because it's faster and you can't slip.`,
+  "avg1": `⚖️ The average is "what everyone would get if we shared equally". Three kids with 2, 4 and 6 stickers? Pool them (12), share fairly (4 each). Add, then divide by how many — that's sharing-out in disguise.`,
+  "time1": `🕐 Adding time is a two-hop jump: hop to the next friendly hour, then hop the leftover minutes. 4:40 + 35 min = hop 20 to 5:00, hop 15 more to 5:15. Never carry sixty in your head — hop instead.`,
+  "word2": `📦 Division answers TWO different questions: "how many full boxes?" (the quotient) and "what's left over?" (the remainder). Exams love asking about the leftovers — read which one the question wants.`,
+  "selMath:Working backwards": `⏪ Some puzzles hand you the ENDING and ask for the start. Run the movie backwards: undo the last step first, then the one before. "+3 then ×2 gave 16"? Un-double (8), un-add (5). Rewind, don't re-solve.`,
+  "thinking:Logical deduction": `🔗 "MUST be true" is the strictest test in logic: true in EVERY possible world. The killer move is inventing a counter-example — one weird case where the claim breaks. If you can imagine it, the answer isn't "must".`,
+  "thinking:Venn diagram counting": `⭕ Two overlapping circles tame any "some do both" puzzle. The golden rule: fill the OVERLAP first, then the outer parts shrink by themselves. Most wrong answers come from counting the both-group twice.`,
+};
+
+/* ============================================================
    SPEAK & SHINE — communication & articulation coach.
    The kid SPEAKS (voice input) or types a response; we give
    specific, kind feedback on how clearly they expressed it.
@@ -1063,6 +1168,12 @@ const Engine = {
       const pool = THINKING_SKILLS.filter(s => s.band <= band + 1);
       const it = (pool.length ? pick(pool) : THINKING_SKILLS[0]).gen();
       return { skillId: "thinking:" + it.skillName, ...it };
+    }
+    /* Selective maths: mix static items with infinite generators. */
+    if (subject === "selMath" && Math.random() < 0.55) {
+      const pool = SELECTIVE_MATH_GENS.filter(g => g.band <= band + 1);
+      const it = (pool.length ? pick(pool) : SELECTIVE_MATH_GENS[0]).gen();
+      return { skillId: "selMath:" + it.skillName, ...it };
     }
     /* Selective reading/maths pools live in SELECTIVE_BANK, not BANKS. */
     const bank = SELECTIVE_BANK[subject] || BANKS[subject] || [];
@@ -1795,6 +1906,21 @@ function checkBreakNudge() {
 function presentItem(item, isRepeat) {
   SES.item = item; SES.hintIdx = 0; SES.attempts = 0; SES.answered = false;
   SES.recentQs.push(item.q); SES.recentQs = SES.recentQs.slice(-60); // Aishu: avoid repeats far longer
+  /* Intuition-first teach card: the first time a child meets a skill (or after they told us
+     it was confusing), teach the CONCEPT before asking — hook → analogy → model. */
+  if (!isRepeat && SES.mode === "learn") {
+    const key = TEACH[item.skillId] ? item.skillId : null;
+    if (key) {
+      S.taught = S.taught || {};
+      const t = S.taught[SES.childId] = S.taught[SES.childId] || {};
+      const wantsReteach = SES.child.wantsSlower && !SES._reTaught;
+      if (!t[key] || wantsReteach) {
+        t[key] = Date.now(); if (wantsReteach) SES._reTaught = true;
+        save();
+        say(TEACH[key], "New idea — here's the intuition first");
+      }
+    }
+  }
   SES.skillsSeen.add(item.skillName);
   if (!isRepeat) say(item.q, SES.mode === "exam" ? null : item.skillName);
   else say("Here it is again: " + item.q);
@@ -1967,6 +2093,16 @@ function applySelfReport(adj) {
 function beginLearn() {
   const lv = levelsFor(SES.childId, SES.subject);
   const sums = (S.summaries[SES.childId] || []).filter(s => s.subject === SES.subject);
+  /* Rosenshine principle #1 — begin with a short review of previous learning. One quick
+     warm-up question from a skill this child has practised before makes it stick. */
+  const past = Object.keys((S.quizStats || {})[SES.childId] || {}).filter(k =>
+    k.startsWith(SES.subject + ":") || (SES.subject === "maths" && !k.includes(":")));
+  if (past.length && !SES.warmedUp) {
+    SES.warmedUp = true;
+    say(`⚡ Quick warm-up first, ${SES.child.nickname} — yesterday's brain-food makes today stick!`);
+    setTimeout(() => { SES.mode = "learn"; presentItem(Engine.question(SES.subject, learnBand(), { skillId: pick(past), avoid: SES.recentQs })); }, 800);
+    return;
+  }
   say(sums.length ? GREETINGS.returning(SES.child.nickname, sums[0].text) : `Level ${lv.level}${lv.challenge ? " · 🚀 working ahead" : ""}, here we come! Pick a topic below, or I'll surprise you.`);
   /* Topic chips from real skills (Hick's law: choices only while fresh). Each maps to a
      genuine skill id so a tap on "Percentages" gives a percentages question. */

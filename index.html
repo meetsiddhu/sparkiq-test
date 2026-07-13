@@ -918,6 +918,58 @@ function speakActivity(id) { return SPEAK_ACTIVITIES.find(a => a.id === id); }
 const FILLERS = /\b(um+|uh+|er+|like|you know|basically|literally|sort of|kind of)\b/gi;
 
 /* ============================================================
+   EXPERT COUNCIL — rationalise kid + parent feedback into a
+   prioritised "what to build next" board. Feedback is classified
+   into THEMES; each theme carries a pre-reasoned council verdict
+   across five expert lenses. Verdicts respect the non-negotiables
+   (safety/privacy can veto). This runs on-device, aggregate only.
+   ============================================================ */
+const COUNCIL_LENSES = [
+  { id: "psych", glyph: "🧠", name: "Child Psychologist", cares: "motivation, confidence, healthy engagement" },
+  { id: "learn", glyph: "📚", name: "Learning Scientist", cares: "does it actually improve learning" },
+  { id: "ux", glyph: "🎨", name: "Product / UX", cares: "delight, clarity, low friction" },
+  { id: "safety", glyph: "🛡️", name: "Child-Safety & Privacy", cares: "no dark patterns, data minimisation (can VETO)" },
+  { id: "biz", glyph: "💵", name: "Business", cares: "willingness-to-pay, differentiation, cost-to-serve" },
+];
+
+/* verdict ranks for sorting: incorporate > consider > defer > reject */
+const VERDICT_RANK = { incorporate: 0, consider: 1, defer: 2, reject: 3 };
+
+/* Each theme: keywords to match free text, a display label, the council's verdict,
+   which lenses back it (👍) or worry (⚠️/🚫), and a one-line rationale + suggested action. */
+const FEEDBACK_THEMES = [
+  { id: "variety", label: "More variety / less repetition", kw: ["same", "repeat", "again", "variety", "different", "boring", "repetitive", "new questions"],
+    verdict: "incorporate", back: ["learn", "ux", "psych"], rationale: "Repetition kills interest and dulls retrieval practice; deeper, fresher content is pure upside.", action: "Keep expanding question banks + procedural generators." },
+  { id: "harder", label: "Harder / more challenge", kw: ["harder", "challenge", "too easy", "advanced", "stretch", "difficult"],
+    verdict: "incorporate", back: ["learn", "psych", "biz"], rationale: "Desirable difficulty drives growth and signals value; the adaptive 'work-ahead' path already exists to build on.", action: "Strengthen challenge mode + surface it sooner." },
+  { id: "easier", label: "Easier / clearer when stuck", kw: ["easier", "too hard", "confusing", "confused", "don't get", "hard to understand", "slower"],
+    verdict: "incorporate", back: ["learn", "psych", "safety"], rationale: "Frustration erodes confidence; gentle scaffolding protects the learner. Auto-ease already responds to this.", action: "Keep auto-lowering difficulty + add worked-example scaffolds." },
+  { id: "voice", label: "Friendlier / more human voice", kw: ["voice", "robotic", "sound", "talk", "speak", "human"],
+    verdict: "incorporate", back: ["ux", "psych"], rationale: "A warm voice is core to the 'human companion' promise and to young/low-reading kids.", action: "Ship warmer on-device voice now; add optional cloud voice via the parent-configured engine." },
+  { id: "games", label: "More games / playful activities", kw: ["game", "games", "play", "fun", "mini", "arcade", "playful"],
+    verdict: "consider", back: ["ux", "psych"], worry: ["safety", "learn"], rationale: "Play boosts engagement, BUT games must be learning-linked, not dopamine filler or an infinite feed.", action: "Gamify learning (quests, boss-questions) rather than bolt on unrelated games." },
+  { id: "rewards", label: "More badges / rewards / unlocks", kw: ["badge", "reward", "prize", "unlock", "points", "level up", "collect", "sticker"],
+    verdict: "consider", back: ["psych", "ux"], worry: ["safety"], rationale: "Rewards motivate if celebratory — never loss-framed, never pay-to-win, never guilt on absence.", action: "Add collectible, effort-based badges; no streak-loss pressure." },
+  { id: "creative", label: "Draw / create / make things", kw: ["draw", "create", "make", "build", "story", "art", "design", "invent"],
+    verdict: "consider", back: ["learn", "psych", "ux"], rationale: "Creation deepens learning and delight; scope carefully to stay on-mission.", action: "Prototype a 'create' mode (story/comic/explain-with-a-drawing)." },
+  { id: "avatar", label: "Customise buddy / avatar", kw: ["avatar", "character", "customise", "customize", "dress", "buddy", "pet", "my own"],
+    verdict: "consider", back: ["psych", "ux", "biz"], rationale: "Personalisation builds attachment and is a cheap retention lever; watch scope creep.", action: "Add unlockable buddy looks earned through learning." },
+  { id: "subjects", label: "More subjects / topics", kw: ["subject", "topic", "coding", "music", "history", "geography", "language", "spanish", "french", "sport"],
+    verdict: "consider", back: ["biz", "learn"], rationale: "Breadth widens the market but dilutes depth; add where demand clusters.", action: "Track requests; add the most-asked subject next." },
+  { id: "length", label: "Shorter / longer sessions", kw: ["shorter", "longer", "time", "quick", "too long", "class length"],
+    verdict: "consider", back: ["psych", "ux"], rationale: "Session flexibility fits family routines; class-mode already gives a long arc.", action: "Offer a 'quick 10-min' vs 'full class' choice." },
+  { id: "social", label: "Friends / compete / multiplayer", kw: ["friend", "friends", "compete", "competition", "multiplayer", "versus", "leaderboard", "chat with"],
+    verdict: "defer", back: ["psych", "biz"], worry: ["safety"], rationale: "Social features are a top engagement driver BUT carry serious child-safety load (contact, comparison, bullying).", action: "Defer until moderation, consent and anti-comparison design are in place." },
+  { id: "money", label: "Real money / buy things", kw: ["money", "buy", "cash", "real prize", "gift card", "purchase", "spend"],
+    verdict: "reject", back: [], worry: ["safety"], rationale: "Monetary incentives aimed at children are a hard line — commercial pressure on kids violates the non-negotiables.", action: "Do not build. Rewards stay non-monetary." },
+];
+
+function classifyFeedback(text) {
+  const t = " " + (text || "").toLowerCase() + " ";
+  return FEEDBACK_THEMES.filter(th => th.kw.some(k => t.includes(k)));
+}
+
+/* ============================================================
    SAFETY — moderation, distress, persona-override detection
    ============================================================ */
 const SAFETY = {
@@ -2407,6 +2459,7 @@ function openTools() {
     <button data-t="quiz">⚡ Quiz me</button>
     <button data-t="challenge" ${challengeOn ? 'style="border-color:var(--spark);color:var(--spark)"' : ""}>${challengeOn ? "🚀 Back to my level" : "🚀 Level up (work ahead)"}</button>
     <button data-t="review">🔁 Review queue ${due ? `(${due})` : ""}</button>
+    <button data-t="tell">💬 Tell Spark (feedback)</button>
   </div></div>`;
   veil.querySelectorAll("button").forEach(b => b.onclick = () => {
     veil.remove();
@@ -2426,8 +2479,40 @@ function openTools() {
       SES.mode = "learn"; setTimeout(() => nextLearn(), 700);
     }
     if (t === "review") { SES.mode = "review"; beginReview(); }
+    if (t === "tell") midSessionFeedback();
   });
   document.body.appendChild(veil);
+}
+/* Mid-session quick feedback (kid can tell Spark any time via Tools → Tell Spark). */
+function midSessionFeedback() {
+  const cid = SES.childId, subject = SES.subject;
+  const v = modal(`<h2 style="text-align:center">💬 Tell Spark</h2>
+    <p class="dim" style="text-align:center">Your ideas make me better! (totally optional)</p>
+    <div id="mid-fb"></div>`);
+  const box = v.querySelector("#mid-fb");
+  renderWishStep(box, cid, subject, () => {
+    box.innerHTML = `<p class="tag good" style="font-size:1em;display:block;text-align:center">Thank you — I'll pass that to my team! 💛</p>
+      <div class="actions" style="margin-top:10px"><button class="primary" onclick="this.closest('.modal-veil').remove()">Back to learning</button></div>`;
+  });
+}
+/* The shared "I wish I had…" step (used at session end AND mid-session). */
+function renderWishStep(el, childId, subject, onDone) {
+  const wishes = ["More games 🎮", "More badges 🏅", "Harder puzzles 🧩", "Draw & create 🎨", "My own buddy 🎭", "More subjects 📚", "Learn with friends 👫"];
+  el.innerHTML = `<p class="dim" style="text-align:center;margin-top:8px">I wish SparkIQ had…</p>
+    <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin-top:6px">
+      ${wishes.map(w => `<button class="chip">${w}</button>`).join("")}
+    </div>`;
+  el.querySelectorAll("button").forEach(b => b.onclick = () => {
+    recordWish(childId, subject, b.textContent);
+    onDone && onDone();
+  });
+}
+function recordWish(childId, subject, wish) {
+  S.wishes = S.wishes || {};
+  (S.wishes[childId] = S.wishes[childId] || []);
+  S.wishes[childId].unshift({ at: Date.now(), wish, from: "kid" });
+  S.wishes[childId] = S.wishes[childId].slice(0, 50);
+  save();
 }
 
 /* ---------- End session ---------- */
@@ -2491,7 +2576,8 @@ function kidRate(childId, subject, mood) {
         ${["Too hard", "Too easy", "A bit boring", "Confusing", "Too long"].map(r => `<button class="chip" onclick="kidReason('${childId}','${subject}','${r.replace(/[^a-z ]/gi,"")}')">${r}</button>`).join("")}</div>`;
   }
 }
-/* Store the reason AND close the loop: adjust the child's next experience accordingly. */
+/* Store the reason AND close the loop: adjust the child's next experience accordingly.
+   Then ask the third question — "I wish I had…" — so we capture ideas, not just problems. */
 function kidReason(childId, subject, reason) {
   S.funReasons = S.funReasons || {};
   (S.funReasons[childId] = S.funReasons[childId] || {});
@@ -2499,7 +2585,11 @@ function kidReason(childId, subject, reason) {
   applyKidSignal(childId, subject, reason);
   save();
   const reasonEl = document.getElementById("fb-reason");
-  if (reasonEl) reasonEl.innerHTML = `<p class="tag good" style="font-size:1em">Got it — I'll use that next time. 💛</p>`;
+  if (reasonEl) {
+    reasonEl.innerHTML = `<p class="tag good" style="font-size:1em;display:inline-block">Got it — I'll use that next time. 💛</p><div id="fb-wish"></div>`;
+    const wishEl = document.getElementById("fb-wish");
+    if (wishEl) renderWishStep(wishEl, childId, subject, () => { wishEl.innerHTML = `<p class="dim" style="margin-top:8px">Ooh, great idea — I'll tell my team! ✨</p>`; });
+  }
 }
 /* The "use the feedback to improve" step, in-product: kid signals steer difficulty + delight. */
 function applyKidSignal(childId, subject, reason) {
@@ -2547,7 +2637,7 @@ function feedbackTab() {
 
   const recent = (S.parentFeedback || []).slice(0, 5).map(p =>
     `<div class="event info"><b>NPS ${p.nps ?? "–"} · pay: ${esc(p.wtp || "–")}</b>
-     <br><small>${new Date(p.at).toLocaleDateString()}${p.improve ? " · improve: " + esc(p.improve) : ""}${p.comments ? " · " + esc(p.comments) : ""}</small></div>`).join("");
+     <br><small>${new Date(p.at).toLocaleDateString()}${p.liked ? " · liked: " + esc(p.liked) : ""}${p.improve ? " · better: " + esc(p.improve) : ""}${p.wish ? " · wish: " + esc(p.wish) : ""}</small></div>`).join("");
 
   return `
   <div class="card"><h2>💬 Feedback</h2>
@@ -2558,14 +2648,16 @@ function feedbackTab() {
     ${kidCards || `<p class="dim">No child ratings yet — they appear after a session.</p>`}</div>
 
   <div class="card"><h2>Your feedback</h2>
-    <label>How likely are you to recommend SparkIQ to another parent? <span class="hint">(0 = not at all, 10 = definitely)</span></label>
+    <label>What did your child (or you) <b>like</b>?</label>
+    <textarea id="fb-liked" rows="2" placeholder="e.g. she loved the buddy voice and the tongue twisters"></textarea>
+    <label>What could be <b>better</b>?</label>
+    <textarea id="fb-improve" rows="2" placeholder="e.g. more variety in science, or clearer explanations"></textarea>
+    <label>"I wish SparkIQ had…"</label>
+    <textarea id="fb-wish" rows="2" placeholder="e.g. more games, drawing, a spelling bee, coding…"></textarea>
+    <label>How likely are you to recommend SparkIQ to another parent? <span class="hint">(0–10)</span></label>
     <select id="fb-nps">${["–", ...Array.from({ length: 11 }, (_, i) => i)].map(n => `<option>${n}</option>`).join("")}</select>
     <label>Would you pay ${CONFIG.currency} $${CONFIG.tiers.family.priceMonthly}/mo after the pilot?</label>
     <select id="fb-wtp"><option value="">Choose…</option><option>Yes</option><option>Maybe</option><option>No</option></select>
-    <label>The ONE thing that would most improve it</label>
-    <textarea id="fb-improve" rows="2" placeholder="e.g. more variety in science, or a friendlier voice"></textarea>
-    <label>Anything else? <span class="hint">(optional)</span></label>
-    <textarea id="fb-comments" rows="2" placeholder="What your child said, what you noticed…"></textarea>
     <div class="actions"><button class="primary" onclick="saveParentFeedback()">Send feedback</button></div>
     ${recent ? `<h3 style="margin-top:16px">Your recent feedback</h3>${recent}` : ""}</div>
 
@@ -2578,18 +2670,86 @@ function feedbackTab() {
     <h3 style="margin-top:14px">What this suggests</h3>
     <ul class="clean">${ins.suggestions.map(s => `<li>${esc(s)}</li>`).join("")}</ul>
     <div class="actions"><button class="ghost" onclick="exportFeedback()">⬇ Export feedback (JSON)</button></div>
-    <p class="dim"><small>Ties to the pilot's two questions: willingness-to-pay at $${CONFIG.tiers.family.priceMonthly}/mo, and whether kids come back and love it.</small></p></div>`;
+    <p class="dim"><small>Ties to the pilot's two questions: willingness-to-pay at $${CONFIG.tiers.family.priceMonthly}/mo, and whether kids come back and love it.</small></p></div>
+
+  ${councilBoard()}`;
+}
+
+/* ---------- Expert Council: rationalise ALL kid + parent feedback into a
+   prioritised, verdict-tagged board of what to incorporate. On-device, aggregate. */
+function gatherFeedbackText() {
+  const items = [];
+  Object.entries(S.funReasons || {}).forEach(([cid, rs]) => Object.entries(rs).forEach(([r, n]) => {
+    if (r.startsWith("loved:")) return;
+    for (let i = 0; i < n; i++) items.push({ text: r, from: "kid" });
+  }));
+  Object.values(S.wishes || {}).forEach(list => list.forEach(w => items.push({ text: w.wish, from: "kid" })));
+  (S.parentFeedback || []).forEach(p => {
+    if (p.improve) items.push({ text: p.improve, from: "parent" });
+    if (p.wish) items.push({ text: p.wish, from: "parent" });
+    if (p.liked) items.push({ text: p.liked, from: "parent", positive: true });
+    if (p.comments) items.push({ text: p.comments, from: "parent" });
+  });
+  return items;
+}
+function runCouncil() {
+  const items = gatherFeedbackText();
+  const byTheme = {};
+  items.forEach(it => classifyFeedback(it.text).forEach(th => {
+    const e = byTheme[th.id] = byTheme[th.id] || { theme: th, count: 0, kid: 0, parent: 0 };
+    e.count++; if (it.from === "kid") e.kid++; else e.parent++;
+  }));
+  const rows = Object.values(byTheme).sort((a, b) =>
+    (VERDICT_RANK[a.theme.verdict] - VERDICT_RANK[b.theme.verdict]) || (b.count - a.count));
+  return { rows, total: items.length };
+}
+const VERDICT_META = {
+  incorporate: { label: "Incorporate now", cls: "good", glyph: "✅" },
+  consider: { label: "Consider", cls: "", glyph: "🤔" },
+  defer: { label: "Defer", cls: "", glyph: "🕒" },
+  reject: { label: "Not building", cls: "", glyph: "🚫" },
+};
+function councilBoard() {
+  const { rows, total } = runCouncil();
+  const lensLegend = COUNCIL_LENSES.map(l => `${l.glyph} ${l.name}`).join(" · ");
+  if (!total) {
+    return `<div class="card"><h2>🏛️ Expert Council</h2>
+      <p class="dim">Once a few pieces of feedback come in from ${esc(S.children[0] ? S.children[0].nickname : "your child")} and you, a panel of five expert lenses
+      (${lensLegend}) rationalises them here into a prioritised "what to build next" — with safety able to veto.</p></div>`;
+  }
+  const card = r => {
+    const th = r.theme, m = VERDICT_META[th.verdict];
+    const back = (th.back || []).map(id => COUNCIL_LENSES.find(l => l.id === id)).filter(Boolean);
+    const worry = (th.worry || []).map(id => COUNCIL_LENSES.find(l => l.id === id)).filter(Boolean);
+    return `<div class="card" style="margin:10px 0">
+      <div class="row spread"><b>${th.label}</b>
+        <span class="tag ${m.cls}">${m.glyph} ${m.label}</span></div>
+      <p class="dim" style="margin-top:6px"><small>${esc(th.rationale)}</small></p>
+      <p style="margin-top:6px"><small><b>Next:</b> ${esc(th.action)}</small></p>
+      <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px">
+        <span class="tag">mentions ×${r.count} (${r.kid}👦 ${r.parent}👪)</span>
+        ${back.map(l => `<span class="tag good" title="${l.name} backs this">👍 ${l.glyph}</span>`).join("")}
+        ${worry.map(l => `<span class="tag" style="color:var(--warn)" title="${l.name} flags a concern">⚠️ ${l.glyph}</span>`).join("")}
+      </div></div>`;
+  };
+  return `<div class="card"><h2>🏛️ Expert Council</h2>
+    <p class="dim">Five expert lenses (${lensLegend}) weigh every idea from ${esc(S.children.map(c=>c.nickname).join(" & ") || "your child")} and you.
+    Child-safety can veto. Sorted by what to do first.</p></div>
+    ${rows.map(card).join("")}
+    <div class="card"><div class="actions"><button class="ghost" onclick="exportFeedback()">⬇ Export council + feedback (JSON)</button></div>
+    <p class="dim"><small>This is a rule-based first pass to focus the human decision — not a replacement for your judgement.</small></p></div>`;
 }
 
 function saveParentFeedback() {
   const npsRaw = document.getElementById("fb-nps").value;
   const nps = npsRaw === "–" ? null : Number(npsRaw);
   const wtp = document.getElementById("fb-wtp").value;
+  const liked = document.getElementById("fb-liked").value.trim().slice(0, 500);
   const improve = document.getElementById("fb-improve").value.trim().slice(0, 500);
-  const comments = document.getElementById("fb-comments").value.trim().slice(0, 500);
-  if (nps == null && !wtp && !improve && !comments) return modal(`<h2>Nothing to send yet</h2><p>Add a score or a note first. 🙂</p>`);
+  const wish = document.getElementById("fb-wish").value.trim().slice(0, 500);
+  if (nps == null && !wtp && !liked && !improve && !wish) return modal(`<h2>Nothing to send yet</h2><p>Add a score or a note first. 🙂</p>`);
   S.parentFeedback = S.parentFeedback || [];
-  S.parentFeedback.unshift({ at: Date.now(), nps, wtp, improve, comments });
+  S.parentFeedback.unshift({ at: Date.now(), nps, wtp, liked, improve, wish, comments: "" });
   S.parentFeedback = S.parentFeedback.slice(0, 50);
   save();
   modal(`<h2>Thank you 💛</h2><p>Your feedback is saved on this device. It directly shapes what we build next — export it from the Feedback tab to send during the pilot.</p>
@@ -2633,11 +2793,16 @@ function feedbackInsights() {
 }
 
 function exportFeedback() {
+  const council = runCouncil();
   const payload = {
     exportedAt: new Date().toISOString(),
-    kidEnjoyment: S.fun || {}, kidReasons: S.funReasons || {},
+    kidEnjoyment: S.fun || {}, kidReasons: S.funReasons || {}, kidWishes: S.wishes || {},
     parentFeedback: S.parentFeedback || [],
     insights: feedbackInsights(),
+    council: council.rows.map(r => ({ theme: r.theme.label, verdict: r.theme.verdict, mentions: r.count,
+      kid: r.kid, parent: r.parent, rationale: r.theme.rationale, action: r.theme.action,
+      backedBy: r.theme.back, concerns: r.theme.worry || [] })),
+    speaking: S.speakStats || {},
     northStar: S.northStar,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });

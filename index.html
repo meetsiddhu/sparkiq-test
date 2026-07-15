@@ -367,8 +367,8 @@ function relevantExams(year, curriculum) {
 /* Which local skill pools each exam draws its practice set from */
 const EXAM_POOLS = {
   naplan: ["maths", "english", "thinking"],
-  oc: ["maths", "english", "thinking"],
-  selective: ["maths", "english", "thinking"],
+  oc: ["selReading", "selMath", "thinking"],
+  selective: ["selReading", "selMath", "thinking"],
   icas: ["maths", "english", "physics", "chemistry", "biology", "thinking"],
   scholarship: ["maths", "english", "thinking"],
   examskills: ["maths", "english", "thinking"],
@@ -398,7 +398,7 @@ function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function normAns(s) { return String(s).trim().toLowerCase().replace(/\s+/g, " ").replace(/[.,!?]+$/, ""); }
 function numEq(input, target) {
-  const v = parseFloat(String(input).replace(/[^\d.\-/]/g, m => m === "/" ? "/" : ""));
+  const v = parseFloat(String(input).replace(/[^\d.\-/]/g, ""));
   if (String(input).includes("/")) {
     const p = String(input).split("/").map(Number);
     if (p.length === 2 && p[1] !== 0) return Math.abs(p[0] / p[1] - target) < 0.001;
@@ -606,9 +606,10 @@ const THINKING_SKILLS = [
   { band: 1, gen() { const start = ri(2, 6), step = ri(2, 5), n = 4; const seq = Array.from({length:n},(_,i)=>start+i*step); const next = start+n*step;
     return { skillName: "Number patterns", q: `What comes next: ${seq.join(", ")}, ?`, answer: String(next), check: v => numEq(v, next),
       hints:[`How much do you add each time?`, `Each step adds ${step}.`], worked:`Add ${step} each time: next is ${next}.`, real:`Spotting patterns is the core of every puzzle test.`, trick:`Find the jump between two numbers, then keep jumping.` }; }},
-  { band: 2, gen() { const names=["Ava","Ben","Cara"]; const ages=shuffle([ri(8,10),ri(11,13),ri(14,16)]); const oldest=names[ages.indexOf(Math.max(...ages))];
-    return { skillName:"Logical deduction", q:`Ava is younger than Ben. Cara is older than Ben. Who is oldest?`, answer:"Cara", check:v=>normAns(v).includes("cara"),
-      hints:[`Line them up youngest to oldest.`, `Cara is older than Ben, who is older than Ava.`], worked:`Ava < Ben < Cara, so Cara is oldest.`, real:`Deduction questions are the heart of selective thinking-skills sections.`, trick:`Draw a line and place each clue on it.` }; }},
+  { band: 2, gen() { const names=shuffle(["Ava","Ben","Cara","Dan","Eve","Finn","Gia","Hugo","Ivy","Kai"]).slice(0,3);
+    const [a,b,c]=names; const askOldest=Math.random()<0.5; const answer=askOldest?c:a; // fixed order a<b<c
+    return { skillName:"Logical deduction", q:`${a} is younger than ${b}. ${c} is older than ${b}. Who is the ${askOldest?"OLDEST":"YOUNGEST"}?`, answer, check:v=>normAns(v).includes(answer.toLowerCase()),
+      hints:[`Line them up youngest → oldest.`, `${a} < ${b} < ${c}.`], worked:`In order: ${a} < ${b} < ${c}, so the ${askOldest?"oldest is "+c:"youngest is "+a}.`, real:`Deduction questions are the heart of selective thinking-skills sections.`, trick:`Draw a line and place each clue on it.` }; }},
   { band: 3, gen() { const a=ri(2,9), b=ri(2,9); const code=a*10+b;
     return { skillName:"Code puzzles", q:`If A=${a} and B=${b}, and a word's value is A then B side by side as digits, what number is "AB"?`, answer:String(code), check:v=>numEq(v,code),
       hints:[`Place A in the tens spot, B in the ones spot.`, `Tens digit ${a}, ones digit ${b}.`], worked:`${a} tens and ${b} ones = ${code}.`, real:`Code-breaking questions test place value + logic together.`, trick:`Read the rule literally, one step at a time.` }; }},
@@ -651,6 +652,10 @@ const THINKING_SKILLS = [
   { band: 3, gen() { const claim=pick([
       { c:`"Our school should ban homework because students at schools without homework are happier."`, w:`Happiness might come from something else those schools do`, s:[`A survey shows homework causes stress`, `Happy students learn faster`, `Homework takes time`] },
       { c:`"Everyone should ride bikes to school because it's good exercise."`, w:`Some students live too far away to ride safely`, s:[`Exercise improves focus in class`, `Bikes are cheaper than buses`, `Cycling is fun`] },
+      { c:`"We should replace the library with a computer lab because most research is done online now."`, w:`Many students rely on the library's books and quiet space that a lab wouldn't provide`, s:[`Computers can access more sources`, `Labs look more modern`, `Some websites need paid access`] },
+      { c:`"Selling only healthy food at the canteen will make students healthier."`, w:`Students could just buy junk food elsewhere on the way to school`, s:[`Healthy food can be tasty`, `The canteen would earn less money`, `Nutrition affects concentration`] },
+      { c:`"Our team lost because the referee was unfair."`, w:`The other team may simply have played better on the day`, s:[`Referees sometimes make mistakes`, `The team trained hard`, `The crowd was loud`] },
+      { c:`"This phone must be the best because it's the most expensive."`, w:`A high price can reflect branding rather than better performance`, s:[`Expensive things use better materials sometimes`, `The phone has a big screen`, `Many people own it`] },
     ]);
     const opts = shuffle([claim.w, ...claim.s]); const ansIdx = opts.indexOf(claim.w);
     return { skillName:"Evaluating arguments", q:`${claim.c}\n\nWhich statement most WEAKENS this argument?`, opts, answer: claim.w, check: v => Number(v) === ansIdx,
@@ -693,6 +698,48 @@ const SELECTIVE_BANK = {
     { band: 3, skill: "Reading — inference", q: `Read: "Dad glanced at the clock, sighed, and started tidying the untouched party decorations." We can best infer that…`,
       opts: ["the party was a big success", "no guests had arrived", "Dad loves decorating", "it was morning"], a: 1,
       hints: ["Why would decorations be 'untouched' and Dad sighing?", "Put the clues together: clock, sigh, untouched."], worked: `Untouched decorations + a sigh + clock-watching imply the guests hadn't come — the party wasn't going to plan.`, real: `High-level inference stacks several clues into one conclusion.`, trick: `Ask: what situation would make ALL these clues true at once?` },
+    { band: 2, skill: "Reading — poetry", q: `Read this couplet: "The moon, a silver coin flipped high, / spins slowly through the velvet sky." The poet compares the moon to a coin using…`,
+      opts: ["a metaphor", "alliteration", "onomatopoeia", "rhyme only"], a: 0,
+      hints: ["Does it say the moon is LIKE a coin, or call it one directly?", "'The moon, a silver coin' states it directly."], worked: `Calling the moon "a silver coin" directly is a metaphor (no 'like' or 'as').`, real: `Selective reading includes poetry — technique + effect questions.`, trick: `Direct comparison = metaphor; 'like/as' = simile.` },
+    { band: 2, skill: "Reading — non-fiction", q: `"Wombats dig burrows up to 30 m long. Their backwards-facing pouch keeps dirt away from their joeys while digging." Why does the pouch face backwards?`,
+      opts: ["To keep the joey warm", "So dirt doesn't get in while digging", "To help the wombat run", "To carry food"], a: 1,
+      hints: ["The answer is stated — find the connecting phrase.", "'…keeps dirt away from their joeys WHILE DIGGING.'"], worked: `The text links the backwards pouch to digging: it stops dirt filling the pouch.`, real: `Factual retrieval + cause-effect is classic Selective non-fiction reading.`, trick: `For 'why' questions, hunt for because/so/while phrases.` },
+    { band: 3, skill: "Reading — cloze", q: `Choose the word that best completes the sentence: "The scientist's results were so ______ that other researchers repeated the experiment to check them."`,
+      opts: ["surprising", "boring", "expected", "colourful"], a: 0,
+      hints: ["Why would others rush to double-check results?", "Results you don't believe at first are…"], worked: `Only "surprising" explains why others felt the need to verify.`, real: `Cloze (fill-the-gap) questions test vocabulary + logic together.`, trick: `Read the WHOLE sentence first; the clue is usually after the gap.` },
+    { band: 1, skill: "Reading — main idea", q: `Read: "Octopuses can change colour in an instant, squeeze through gaps the size of a coin, and even solve puzzles to reach food. Few animals are as clever or as flexible." The passage is mainly about how octopuses are…`,
+      opts: ["dangerous", "remarkably clever and adaptable", "brightly coloured only", "hard to find"], a: 1,
+      hints: ["What idea do ALL the examples support?", "Colour, squeezing and puzzles all show one quality."], worked: `Every detail is an example of cleverness and flexibility — that's the main idea.`, real: `The main idea is the umbrella every detail sits under.`, trick: `Ask: what one sentence could all these examples prove?` },
+    { band: 1, skill: "Reading — inference", q: `Read: "Tom checked his bag three times, tightened his laces, and kept glancing at the starting line." How is Tom most likely feeling?`,
+      opts: ["Bored", "Nervous before a race", "Sleepy", "Angry"], a: 1,
+      hints: ["What do the repeated checks and glances suggest?", "People often fidget when they feel this way."], worked: `Checking repeatedly and watching the start line shows pre-race nerves.`, real: `Inference means reading the clues the writer doesn't state outright.`, trick: `Add up the small actions — they point at the feeling.` },
+    { band: 1, skill: "Reading — vocabulary in context", q: `"The path was so narrow that they had to walk in single file." Here, "single file" means walking…`,
+      opts: ["very fast", "one behind another", "side by side", "in circles"], a: 1,
+      hints: ["Why would a NARROW path force a certain way of walking?", "If it's too narrow for two, you go…"], worked: `A narrow path forces people into a line, one behind another — that's "single file".`, real: `Context clues let you meet new phrases without a dictionary.`, trick: `Let the situation in the sentence define the phrase.` },
+    { band: 2, skill: "Reading — inference", q: `Read: "The teacher smiled as she stacked the unopened test papers back in the cupboard and told everyone to bring their swimmers tomorrow." We can best infer that…`,
+      opts: ["the test was very hard", "the test has been postponed", "students failed", "it is winter"], a: 1,
+      hints: ["Why are the papers 'unopened' and going back in the cupboard?", "What replaces the test tomorrow?"], worked: `Unopened papers put away + swimmers tomorrow imply the test was postponed, not sat.`, real: `Strong inference combines several clues into one conclusion.`, trick: `Find the situation that makes EVERY clue fit at once.` },
+    { band: 2, skill: "Reading — author's purpose", q: `A blog post lists "five easy ways to cut your family's plastic waste this week." The author's main purpose is to…`,
+      opts: ["entertain with jokes", "inform and encourage a change", "tell a personal story", "sell plastic"], a: 1,
+      hints: ["Is the writer joking, storytelling, or guiding action?", "'Five easy ways to…' is practical advice."], worked: `Offering practical steps to change behaviour is informing and encouraging action.`, real: `Purpose (inform/persuade/entertain) shapes how you read a text.`, trick: `Look at what the writer wants YOU to do or know.` },
+    { band: 2, skill: "Reading — fact vs opinion", q: `Which sentence is a FACT?`,
+      opts: ["Dogs make better pets than cats.", "The Moon orbits the Earth.", "Winter is too cold.", "Pizza is the tastiest food."], a: 1,
+      hints: ["A fact can be checked and proven.", "Which one can't be argued with?"], worked: `"The Moon orbits the Earth" can be verified — it's a fact; the others are personal opinions.`, real: `Separating fact from opinion is key to judging persuasion.`, trick: `If it can be proven true or false, it's a fact.` },
+    { band: 3, skill: "Reading — tone", q: `Read: "Oh wonderful — another Monday, another pile of forms to fill in. Just what I always dreamed of." The tone here is…`,
+      opts: ["genuinely excited", "sarcastic", "frightened", "confused"], a: 1,
+      hints: ["Do the words match the real feeling?", "'Just what I always dreamed of' about FORMS?"], worked: `The over-positive words about a dull task signal sarcasm — the opposite of the literal meaning.`, real: `Detecting tone (especially irony) is a higher-order reading skill.`, trick: `When words seem too positive for the situation, suspect sarcasm.` },
+    { band: 3, skill: "Reading — compare viewpoints", q: `Text A says screens harm children's sleep. Text B says screens help children learn. Together, the texts best show that…`,
+      opts: ["screens are always bad", "the issue has more than one side", "Text A is wrong", "children never sleep"], a: 1,
+      hints: ["Two texts, two different angles.", "What does holding both views reveal?"], worked: `Contrasting texts reveal a topic with valid competing viewpoints — not a single simple answer.`, real: `Synthesising across texts is tested in senior reading tasks.`, trick: `When sources disagree, the 'answer' is often that the issue is complex.` },
+    { band: 0, skill: "Reading — detail", q: `Read: "Nula packed an apple, a banana and a cheese sandwich for the picnic." What did Nula pack to eat?`,
+      opts: ["A pie", "An apple, a banana and a sandwich", "Only fruit", "A drink"], a: 1,
+      hints: ["Look back at the list in the sentence.", "Find the three things named."], worked: `The sentence lists an apple, a banana and a cheese sandwich.`, real: `Finding stated details is the first reading skill to master.`, trick: `The answer is right there — scan back to the list.` },
+    { band: 0, skill: "Reading — sequence", q: `Read: "First Ravi brushed his teeth. Then he read a book. Last, he turned off the light." What did Ravi do LAST?`,
+      opts: ["Brushed his teeth", "Read a book", "Turned off the light", "Ate dinner"], a: 2,
+      hints: ["Find the time word 'last'.", "'Last, he turned off the light.'"], worked: `The order is brush → read → turn off light, so 'last' is turning off the light.`, real: `Following order is tested from the earliest reading levels.`, trick: `Underline first, then, last to track the order.` },
+    { band: 1, skill: "Reading — cause & effect", q: `Read: "Because it rained all morning, the cricket match was cancelled." Why was the match cancelled?`,
+      opts: ["It was too hot", "It rained all morning", "No one came", "It was dark"], a: 1,
+      hints: ["Find the word 'because' — the cause follows it.", "What happened all morning?"], worked: `"Because it rained all morning" states the cause of the cancellation.`, real: `Spotting cause and effect is core comprehension.`, trick: `'Because', 'so' and 'therefore' flag cause-and-effect.` },
   ],
   selMath: [
     { band: 2, skill: "Multi-step reasoning", q: `A pizza is cut into 8 equal slices. Sam eats 3 slices, then Mia eats half of what's left. How many slices remain?`,
@@ -713,15 +760,6 @@ const SELECTIVE_BANK = {
     { band: 3, skill: "Logical maths", q: `In a race, Kim finished ahead of Sam but behind Tara. Who came first?`,
       a: "Tara", check: v => normAns(v).includes("tara"),
       hints: ["Order them from first to last.", "Tara is ahead of Kim, who is ahead of Sam."], worked: `Tara → Kim → Sam. Tara came first.`, real: `Ordering from clues is half of the thinking-skills section.`, trick: `Draw the finish line and place each clue.` },
-    { band: 2, skill: "Reading — poetry", q: `Read this couplet: "The moon, a silver coin flipped high, / spins slowly through the velvet sky." The poet compares the moon to a coin using…`,
-      opts: ["a metaphor", "alliteration", "onomatopoeia", "rhyme only"], a: 0,
-      hints: ["Does it say the moon is LIKE a coin, or call it one directly?", "'The moon, a silver coin' states it directly."], worked: `Calling the moon "a silver coin" directly is a metaphor (no 'like' or 'as').`, real: `Selective reading includes poetry — technique + effect questions.`, trick: `Direct comparison = metaphor; 'like/as' = simile.` },
-    { band: 2, skill: "Reading — non-fiction", q: `"Wombats dig burrows up to 30 m long. Their backwards-facing pouch keeps dirt away from their joeys while digging." Why does the pouch face backwards?`,
-      opts: ["To keep the joey warm", "So dirt doesn't get in while digging", "To help the wombat run", "To carry food"], a: 1,
-      hints: ["The answer is stated — find the connecting phrase.", "'…keeps dirt away from their joeys WHILE DIGGING.'"], worked: `The text links the backwards pouch to digging: it stops dirt filling the pouch.`, real: `Factual retrieval + cause-effect is classic Selective non-fiction reading.`, trick: `For 'why' questions, hunt for because/so/while phrases.` },
-    { band: 3, skill: "Reading — cloze", q: `Choose the word that best completes the sentence: "The scientist's results were so ______ that other researchers repeated the experiment to check them."`,
-      opts: ["surprising", "boring", "expected", "colourful"], a: 0,
-      hints: ["Why would others rush to double-check results?", "Results you don't believe at first are…"], worked: `Only "surprising" explains why others felt the need to verify.`, real: `Cloze (fill-the-gap) questions test vocabulary + logic together.`, trick: `Read the WHOLE sentence first; the clue is usually after the gap.` },
   ],
 };
 /* Extra selective mathematical-reasoning GENERATORS (infinite practice). Merged into the
@@ -748,6 +786,221 @@ const SELECTIVE_MATH_GENS = [
       hints:[`Find the length first.`, `Length = 2×${w} = ${l}. Perimeter = 2×(l+w).`], worked:`l=${l}, w=${w}; perimeter = 2×(${l}+${w}) = ${peri} cm.`,
       real:`Multi-step geometry: translate words → dimensions → formula.`, trick:`Turn the words into a labelled sketch before calculating.` }; }},
 ];
+
+/* ============================================================
+   SUBJECT GENERATORS — infinite ORIGINAL variety for english & the
+   sciences, mixed with the curated banks at question time (like the
+   maths/selMath generators). Each is correct-by-construction. Every
+   generator has a top-level skillName so revision can re-target it.
+   ============================================================ */
+const _POS = {
+  adj: ["happy", "tiny", "brave", "clever", "gentle", "fierce", "curious", "sleepy"],
+  noun: ["dog", "teacher", "robot", "dragon", "sailor", "artist", "wombat", "pilot"],
+  verb: ["barked", "jumped", "painted", "sailed", "whispered", "dashed", "giggled", "climbed"],
+  adv: ["loudly", "quickly", "gently", "bravely", "silently", "neatly", "eagerly", "calmly"],
+};
+const _SYN = [
+  { w: "happy", correct: "cheerful", wrong: ["angry", "tired", "empty"] },
+  { w: "big", correct: "enormous", wrong: ["tiny", "quiet", "early"] },
+  { w: "fast", correct: "rapid", wrong: ["slow", "heavy", "loud"] },
+  { w: "smart", correct: "clever", wrong: ["dull", "rude", "damp"] },
+  { w: "scared", correct: "frightened", wrong: ["proud", "calm", "hungry"] },
+  { w: "tired", correct: "weary", wrong: ["fresh", "eager", "bright"] },
+  { w: "cold", correct: "freezing", wrong: ["warm", "sticky", "sharp"] },
+  { w: "pretty", correct: "beautiful", wrong: ["ugly", "clumsy", "narrow"] },
+  { w: "begin", correct: "start", wrong: ["finish", "lose", "carry"] },
+  { w: "strange", correct: "odd", wrong: ["normal", "gentle", "heavy"] },
+  { w: "brave", correct: "courageous", wrong: ["timid", "gentle", "hollow"] },
+  { w: "quiet", correct: "silent", wrong: ["noisy", "eager", "hollow"] },
+];
+const _ANT = [
+  { w: "hot", correct: "cold", wrong: ["warm", "bright", "loud"] },
+  { w: "fast", correct: "slow", wrong: ["quick", "tall", "kind"] },
+  { w: "happy", correct: "sad", wrong: ["glad", "sleepy", "empty"] },
+  { w: "big", correct: "small", wrong: ["huge", "wide", "heavy"] },
+  { w: "light", correct: "dark", wrong: ["bright", "pale", "gold"] },
+  { w: "empty", correct: "full", wrong: ["hollow", "open", "wide"] },
+  { w: "brave", correct: "cowardly", wrong: ["bold", "strong", "proud"] },
+  { w: "ancient", correct: "modern", wrong: ["old", "dusty", "royal"] },
+  { w: "expand", correct: "shrink", wrong: ["grow", "stretch", "swell"] },
+  { w: "generous", correct: "selfish", wrong: ["kind", "giving", "warm"] },
+  { w: "victory", correct: "defeat", wrong: ["prize", "battle", "glory"] },
+  { w: "increase", correct: "decrease", wrong: ["rise", "double", "gather"] },
+];
+const _HOMO = [
+  { s: "The dog wagged ___ tail.", opts: ["its", "it's"], a: 0, why: `"Its" shows belonging; "it's" only means "it is".` },
+  { s: "___ going to love this movie.", opts: ["Their", "There", "They're"], a: 2, why: `"They're" = "they are".` },
+  { s: "Please put the books over ___.", opts: ["their", "there", "they're"], a: 1, why: `"There" points to a place.` },
+  { s: "The team lost ___ trophy.", opts: ["their", "there", "they're"], a: 0, why: `"Their" shows the trophy belongs to them.` },
+  { s: "Are you coming ___ the park?", opts: ["to", "too", "two"], a: 0, why: `"To" shows direction.` },
+  { s: "I want to come ___!", opts: ["to", "too", "two"], a: 1, why: `"Too" means "also".` },
+  { s: "___ the best speller in class.", opts: ["Your", "You're"], a: 1, why: `"You're" = "you are".` },
+  { s: "I like ___ new haircut.", opts: ["your", "you're"], a: 0, why: `"Your" shows belonging.` },
+  { s: "We could hear the wind ___ all night.", opts: ["blew", "blue"], a: 0, why: `"Blew" is the past tense of blow.` },
+  { s: "The ___ rang loudly at the school gate.", opts: ["bell", "belle"], a: 0, why: `"Bell" is the object that rings.` },
+];
+const _PLURAL = [
+  { s: "child", p: "children" }, { s: "leaf", p: "leaves" }, { s: "mouse", p: "mice" },
+  { s: "foot", p: "feet" }, { s: "tooth", p: "teeth" }, { s: "person", p: "people" },
+  { s: "man", p: "men" }, { s: "woman", p: "women" }, { s: "knife", p: "knives" },
+  { s: "wolf", p: "wolves" }, { s: "half", p: "halves" }, { s: "goose", p: "geese" },
+  { s: "cactus", p: "cacti" }, { s: "loaf", p: "loaves" }, { s: "shelf", p: "shelves" },
+];
+const _CONTRACT = [
+  { full: "do not", short: "don't" }, { full: "cannot", short: "can't" }, { full: "I am", short: "I'm" },
+  { full: "they are", short: "they're" }, { full: "we will", short: "we'll" }, { full: "she is", short: "she's" },
+  { full: "would not", short: "wouldn't" }, { full: "it is", short: "it's" }, { full: "you have", short: "you've" },
+  { full: "should not", short: "shouldn't" }, { full: "we are", short: "we're" }, { full: "he will", short: "he'll" },
+];
+const _PREFIX = [
+  { word: "unhappy", part: "un-", mean: "not", opts: ["not", "again", "before", "under"], a: 0 },
+  { word: "redo", part: "re-", mean: "again", opts: ["against", "again", "not", "half"], a: 1 },
+  { word: "preview", part: "pre-", mean: "before", opts: ["after", "before", "not", "many"], a: 1 },
+  { word: "submarine", part: "sub-", mean: "under", opts: ["over", "under", "around", "again"], a: 1 },
+  { word: "tricycle", part: "tri-", mean: "three", opts: ["two", "three", "many", "half"], a: 1 },
+  { word: "misread", part: "mis-", mean: "wrongly", opts: ["wrongly", "again", "before", "fully"], a: 0 },
+  { word: "disagree", part: "dis-", mean: "not / opposite", opts: ["fully", "not / opposite", "before", "again"], a: 1 },
+  { word: "autopilot", part: "auto-", mean: "self", opts: ["many", "self", "under", "against"], a: 1 },
+  { word: "bicycle", part: "bi-", mean: "two", opts: ["two", "three", "one", "many"], a: 0 },
+  { word: "transport", part: "trans-", mean: "across", opts: ["under", "across", "before", "not"], a: 1 },
+];
+const _SPELL = [
+  { correct: "necessary", wrong: ["neccessary", "necesary", "neccesary"] },
+  { correct: "separate", wrong: ["seperate", "seperete", "sepparate"] },
+  { correct: "definitely", wrong: ["definately", "definitly", "defenitely"] },
+  { correct: "believe", wrong: ["beleive", "belive", "beleve"] },
+  { correct: "friend", wrong: ["freind", "frend", "friynd"] },
+  { correct: "beautiful", wrong: ["beutiful", "beautifull", "beautful"] },
+  { correct: "because", wrong: ["becuase", "becase", "beacause"] },
+  { correct: "different", wrong: ["diffrent", "diferent", "differant"] },
+  { correct: "government", wrong: ["goverment", "governmant", "govenment"] },
+  { correct: "rhythm", wrong: ["rythm", "rhythem", "rythem"] },
+  { correct: "embarrass", wrong: ["embarass", "embaras", "embarras"] },
+  { correct: "occasion", wrong: ["ocassion", "occassion", "ocasion"] },
+];
+const SUBJECT_GENS = {
+  english: [
+    { band: 0, skillName: "Synonyms", gen() { const it = pick(_SYN); const opts = shuffle([it.correct, ...it.wrong]); const ai = opts.indexOf(it.correct);
+      return { skillName: "Synonyms", q: `Which word means the SAME (or nearly the same) as "${it.w}"?`, opts, answer: it.correct, check: v => Number(v) === ai,
+        hints: [`A synonym is a word with a matching meaning.`, `Which one could replace "${it.w}" in a sentence?`], worked: `"${it.correct}" means almost the same as "${it.w}" — they're synonyms.`, real: `Synonyms make your writing richer and are tested in every reading paper.`, trick: `Swap-test: which word fits the SAME slot as "${it.w}"?` }; } },
+    { band: 1, skillName: "Antonyms", gen() { const it = pick(_ANT); const opts = shuffle([it.correct, ...it.wrong]); const ai = opts.indexOf(it.correct);
+      return { skillName: "Antonyms", q: `Which word means the OPPOSITE of "${it.w}"?`, opts, answer: it.correct, check: v => Number(v) === ai,
+        hints: [`An antonym is a word with the reverse meaning.`, `Careful — some options are synonyms (traps!).`], worked: `The opposite of "${it.w}" is "${it.correct}".`, real: `Antonym questions test precise vocabulary — a Selective favourite.`, trick: `Watch for synonyms hiding as distractors — you want the REVERSE.` }; } },
+    { band: 1, skillName: "Homophones", gen() { const it = pick(_HOMO); const ai = it.a;
+      return { skillName: "Homophones", q: `Choose the correct word:  "${it.s}"`, opts: it.opts, answer: it.opts[ai], check: v => Number(v) === ai,
+        hints: [`Homophones sound alike but mean different things.`, it.why], worked: `"${it.s.replace("___", it.opts[ai])}" — ${it.why}`, real: `Homophone mix-ups are the #1 spelling error in real writing.`, trick: `Say the long form in your head to test which fits.` }; } },
+    { band: 0, skillName: "Irregular plurals", gen() { const it = pick(_PLURAL);
+      return { skillName: "Irregular plurals", q: `What is the plural of "${it.s}"?`, answer: it.p, check: v => normAns(v) === normAns(it.p),
+        hints: [`It doesn't just add "s".`, `One ${it.s}, two ____.`], worked: `"${it.s}" → "${it.p}" — an irregular plural that changes shape.`, real: `Irregular plurals are ancient words that kept their old forms.`, trick: `The weird plurals are the oldest, most-used words.` }; } },
+    { band: 0, skillName: "Parts of speech", gen() { const role = pick(["adjective", "noun", "verb", "adverb"]); const w = { adj: pick(_POS.adj), noun: pick(_POS.noun), verb: pick(_POS.verb), adv: pick(_POS.adv) };
+      const sentence = `The ${w.adj} ${w.noun} ${w.verb} ${w.adv}.`; const map = { adjective: w.adj, noun: w.noun, verb: w.verb, adverb: w.adv }; const correct = map[role]; const opts = shuffle([w.adj, w.noun, w.verb, w.adv]); const ai = opts.indexOf(correct);
+      return { skillName: "Parts of speech", q: `In "${sentence}" which word is the ${role.toUpperCase()}?`, opts, answer: correct, check: v => Number(v) === ai,
+        hints: [role === "verb" ? `A verb is a doing word.` : role === "noun" ? `A noun names a person, place or thing.` : role === "adjective" ? `An adjective describes a noun.` : `An adverb tells HOW something is done.`, `Which word is the ${role}?`], worked: `"${correct}" is the ${role} in that sentence.`, real: `Knowing word classes is the backbone of grammar questions.`, trick: role === "adverb" ? `Adverbs often (not always) end in -ly.` : `Try the swap/act-it-out test for each word.` }; } },
+    { band: 1, skillName: "Contractions", gen() { const it = pick(_CONTRACT); const ask = Math.random() < 0.5;
+      return ask
+        ? { skillName: "Contractions", q: `Write "${it.full}" as a contraction.`, answer: it.short, check: v => normAns(v).replace(/[’]/g, "'") === normAns(it.short), hints: [`A contraction joins two words with an apostrophe.`, `The apostrophe replaces the missing letters.`], worked: `"${it.full}" → "${it.short}".`, real: `Contractions make writing sound natural — but the apostrophe must be right.`, trick: `The apostrophe marks exactly where letters were removed.` }
+        : { skillName: "Contractions", q: `Which two words does "${it.short}" stand for?`, answer: it.full, check: v => normAns(v) === normAns(it.full), hints: [`Undo the apostrophe.`, `Say it slowly and fully.`], worked: `"${it.short}" = "${it.full}".`, real: `Reading contractions correctly matters for comprehension.`, trick: `Expand the contraction to check it makes sense.` }; } },
+    { band: 1, skillName: "Sentence types", gen() { const t = pick([
+        { q: `The whale is the largest animal on Earth.`, type: "statement", end: "." },
+        { q: `Would you like to come to the beach?`, type: "question", end: "?" },
+        { q: `Close the door quietly.`, type: "command", end: "." },
+        { q: `What an amazing goal that was!`, type: "exclamation", end: "!" },
+        { q: `Please pass me the salt.`, type: "command", end: "." },
+        { q: `Where did you put my shoes?`, type: "question", end: "?" },
+        { q: `The train leaves at nine o'clock.`, type: "statement", end: "." },
+        { q: `We won the grand final!`, type: "exclamation", end: "!" } ]);
+      const opts = ["statement", "question", "command", "exclamation"]; const ai = opts.indexOf(t.type);
+      return { skillName: "Sentence types", q: `What type of sentence is this?  "${t.q}"`, opts, answer: t.type, check: v => Number(v) === ai,
+        hints: [`Look at what the sentence DOES: tells, asks, orders or exclaims.`, `The end punctuation is a big clue.`], worked: `"${t.q}" ${t.type === "question" ? "asks something" : t.type === "command" ? "tells someone to do something" : t.type === "exclamation" ? "shows strong feeling" : "states a fact"} — it's a ${t.type}.`, real: `Controlling sentence types adds variety and impact to writing.`, trick: `. = statement/command, ? = question, ! = exclamation.` }; } },
+    { band: 2, skillName: "Similes & metaphors", gen() { const isSimile = Math.random() < 0.5; const pairs = [["busy", "bee"], ["brave", "lion"], ["quiet", "mouse"], ["cold", "ice"], ["bright", "star"], ["strong", "ox"]]; const p = pick(pairs); const nouns = [["classroom", "zoo"], ["city", "jungle"], ["mind", "sponge"], ["blanket", "cloud"], ["heart", "stone"]]; const n = pick(nouns);
+      const sentence = isSimile ? `"As ${p[0]} as a ${p[1]}"` : `"The ${n[0]} was a ${n[1]}"`;
+      return { skillName: "Similes & metaphors", q: `Is this a simile or a metaphor?  ${sentence}`, opts: ["Simile", "Metaphor"], answer: isSimile ? "Simile" : "Metaphor", check: v => Number(v) === (isSimile ? 0 : 1),
+        hints: [`A simile uses "like" or "as"; a metaphor says one thing IS another.`, isSimile ? `Spot the "as".` : `There's no "like" or "as" here.`], worked: isSimile ? `"${p[0]} as a ${p[1]}" uses "as" — that's a simile.` : `Calling the ${n[0]} a ${n[1]} directly (no "like"/"as") is a metaphor.`, real: `Figurative language is analysed in every English course to Year 12.`, trick: `SIMile needs "like"/"as"; a metaphor just declares it.` }; } },
+    { band: 2, skillName: "Prefixes & suffixes", gen() { const it = pick(_PREFIX);
+      return { skillName: "Prefixes & suffixes", q: `In the word "${it.word}", what does the prefix "${it.part}" mean?`, opts: it.opts, answer: it.opts[it.a], check: v => Number(v) === it.a,
+        hints: [`A prefix at the start changes a word's meaning.`, `Think of other "${it.part}" words.`], worked: `"${it.part}" means "${it.mean}", so "${it.word}" means ${it.part === "un-" || it.part === "dis-" || it.part === "mis-" ? "the opposite/negative" : it.mean} of the root.`, real: `Prefix knowledge lets you decode words you've never seen — a huge reading advantage.`, trick: `Learn a prefix once and you unlock dozens of words.` }; } },
+    { band: 2, skillName: "Spelling", gen() { const it = pick(_SPELL); const opts = shuffle([it.correct, ...it.wrong]); const ai = opts.indexOf(it.correct);
+      return { skillName: "Spelling", q: `Which is spelled CORRECTLY?`, opts, answer: it.correct, check: v => Number(v) === ai,
+        hints: [`Say it slowly, syllable by syllable.`, `Watch the tricky double letters.`], worked: `The correct spelling is "${it.correct}".`, real: `Spelling counts in NAPLAN language conventions and every piece of writing.`, trick: `Break hard words into chunks: nec‑es‑sar‑y.` }; } },
+  ],
+  physics: [
+    { band: 2, skillName: "Motion & speed", gen() { const sp = pick([4, 5, 6, 8, 10, 12]), t = ri(2, 9); const d = sp * t;
+      return { skillName: "Motion & speed", q: `A cyclist rides ${d} m in ${t} s at a steady pace. What is their speed (m/s)?`, answer: String(sp), check: v => numEq(v, sp),
+        hints: [`Speed = distance ÷ time.`, `${d} ÷ ${t} = ?`], worked: `Speed = ${d} ÷ ${t} = ${sp} m/s.`, real: `Exactly what a speedo shows, averaged.`, trick: `Speed = "how far" over "how long".` }; } },
+    { band: 3, skillName: "Forces (F=ma)", gen() { const m = ri(2, 12), a = ri(2, 9); const f = m * a;
+      return { skillName: "Forces (F=ma)", q: `A ${m} kg trolley accelerates at ${a} m/s². What force drives it (newtons)? (F = ma)`, answer: String(f), check: v => numEq(v, f),
+        hints: [`Multiply mass by acceleration.`, `${m} × ${a} = ?`], worked: `F = m × a = ${m} × ${a} = ${f} N.`, real: `The same law sizes car engines and rockets.`, trick: `"Fat Monkeys Attack" → F = m·a.` }; } },
+    { band: 3, skillName: "Electricity (Ohm's law)", gen() { const r = pick([2, 3, 4, 5, 6, 8]), i = ri(2, 6); const v = r * i;
+      return { skillName: "Electricity (Ohm's law)", q: `A resistor of ${r} Ω carries a current of ${i} A. What voltage is across it (V)? (V = IR)`, answer: String(v), check: x => numEq(x, v),
+        hints: [`Voltage = current × resistance.`, `${i} × ${r} = ?`], worked: `V = I × R = ${i} × ${r} = ${v} V.`, real: `How engineers size every component in your phone.`, trick: `Ohm's triangle: cover the one you want.` }; } },
+    { band: 3, skillName: "Density", gen() { const d = pick([2, 3, 4, 5]), vol = ri(2, 8); const m = d * vol;
+      return { skillName: "Density", q: `A block has mass ${m} g and volume ${vol} cm³. What is its density (g/cm³)? (density = mass ÷ volume)`, answer: String(d), check: v => numEq(v, d),
+        hints: [`Density = mass ÷ volume.`, `${m} ÷ ${vol} = ?`], worked: `Density = ${m} ÷ ${vol} = ${d} g/cm³.`, real: `Why some things float and others sink.`, trick: `Density = how much stuff is packed into the space.` }; } },
+    { band: 4, skillName: "Waves", gen() { const f = pick([2, 4, 5, 6, 10]), wl = ri(2, 8); const s = f * wl;
+      return { skillName: "Waves", q: `A wave has frequency ${f} Hz and wavelength ${wl} m. What is its speed (m/s)? (v = f λ)`, answer: String(s), check: v => numEq(v, s),
+        hints: [`Speed = frequency × wavelength.`, `${f} × ${wl} = ?`], worked: `v = f × λ = ${f} × ${wl} = ${s} m/s.`, real: `How we measure the speed of sound and light.`, trick: `Speed = how OFTEN × how LONG each wave is.` }; } },
+    { band: 4, skillName: "Kinematics", gen() { const a = ri(2, 6), t = ri(3, 8), u = pick([0, 0, 2, 5]); const v = u + a * t;
+      return { skillName: "Kinematics", q: `Starting at ${u} m/s and accelerating at ${a} m/s² for ${t} s, what is the final speed? (v = u + at)`, answer: String(v), check: x => numEq(x, v),
+        hints: [`v = u + at.`, `${u} + ${a}×${t} = ?`], worked: `v = ${u} + ${a}×${t} = ${v} m/s.`, real: `How you'd compute a dragster's speed off the line.`, trick: `Final = start speed + the gain (a·t).` }; } },
+    { band: 4, skillName: "Work & energy", gen() { const f = pick([10, 20, 25, 50]), d = ri(2, 9); const w = f * d;
+      return { skillName: "Work & energy", q: `A force of ${f} N pushes a box ${d} m in the same direction. How much work is done (joules)? (W = F × d)`, answer: String(w), check: v => numEq(v, w),
+        hints: [`Work = force × distance.`, `${f} × ${d} = ?`], worked: `W = F × d = ${f} × ${d} = ${w} J.`, real: `Work is how physicists measure energy transferred.`, trick: `No movement → no work done, however hard you push.` }; } },
+  ],
+  chemistry: [
+    { band: 1, skillName: "State changes", gen() { const c = pick([
+        { from: "solid", to: "liquid", name: "melting" }, { from: "liquid", to: "solid", name: "freezing" },
+        { from: "liquid", to: "gas", name: "evaporating" }, { from: "gas", to: "liquid", name: "condensing" },
+        { from: "solid", to: "gas", name: "subliming" } ]);
+      const opts = shuffle(["melting", "freezing", "evaporating", "condensing"]).slice(0, 3); if (!opts.includes(c.name)) opts[0] = c.name; const o = shuffle(opts); const ai = o.indexOf(c.name);
+      return { skillName: "State changes", q: `What is it called when a substance changes from ${c.from} to ${c.to}?`, opts: o, answer: c.name, check: v => Number(v) === ai,
+        hints: [`Think about heating vs cooling.`, c.to === "gas" || c.to === "liquid" && c.from === "solid" ? `Adding heat.` : `Removing heat.`], worked: `${c.from} → ${c.to} is called ${c.name}.`, real: `The water cycle is these changes on a planetary scale.`, trick: `Heating spreads particles out; cooling packs them in.` }; } },
+    { band: 3, skillName: "Acids & bases (pH)", gen() { const ph = ri(0, 14); const kind = ph < 7 ? "an acid" : ph > 7 ? "a base (alkaline)" : "neutral"; const opts = ["an acid", "neutral", "a base (alkaline)"]; const ai = opts.indexOf(kind);
+      return { skillName: "Acids & bases (pH)", q: `A solution has a pH of ${ph}. Is it an acid, neutral, or a base?`, opts, answer: kind, check: v => Number(v) === ai,
+        hints: [`pH 7 is neutral (pure water).`, `Below 7 = acid; above 7 = base.`], worked: `pH ${ph} is ${kind} (below 7 acid, 7 neutral, above 7 base).`, real: `Your stomach is a strong acid (~pH 2); soap is a base.`, trick: `Low pH = punchy acid; high pH = soapy base; 7 = neutral.` }; } },
+    { band: 2, skillName: "Element symbols", gen() { const els = [["Oxygen", "O"], ["Hydrogen", "H"], ["Carbon", "C"], ["Sodium", "Na"], ["Iron", "Fe"], ["Gold", "Au"], ["Helium", "He"], ["Chlorine", "Cl"], ["Calcium", "Ca"], ["Nitrogen", "N"], ["Potassium", "K"], ["Copper", "Cu"]]; const e = pick(els); const wrong = shuffle(els.filter(x => x[1] !== e[1])).slice(0, 3).map(x => x[1]); const opts = shuffle([e[1], ...wrong]); const ai = opts.indexOf(e[1]);
+      return { skillName: "Element symbols", q: `What is the chemical symbol for ${e[0]}?`, opts, answer: e[1], check: v => Number(v) === ai,
+        hints: [`Symbols are 1–2 letters; the first is a capital.`, `Some come from Latin names (e.g. Iron = Fe, ferrum).`], worked: `${e[0]}'s symbol is ${e[1]}.`, real: `Chemical symbols are the alphabet of every chemical equation.`, trick: `Odd ones (Na, Fe, Au, K) come from old Latin names.` }; } },
+    { band: 2, skillName: "Particle theory", gen() { const s = pick([
+        { state: "solid", desc: "packed tightly in a fixed pattern, barely moving" },
+        { state: "liquid", desc: "close together but able to slide past each other" },
+        { state: "gas", desc: "far apart and moving fast in all directions" } ]);
+      const opts = ["solid", "liquid", "gas"]; const ai = opts.indexOf(s.state);
+      return { skillName: "Particle theory", q: `In which state are the particles ${s.desc}?`, opts, answer: s.state, check: v => Number(v) === ai,
+        hints: [`Picture how tightly the particles are held.`, `More heat → more spread out and faster.`], worked: `Particles ${s.desc} describes a ${s.state}.`, real: `Particle theory explains melting, boiling and why gases fill a room.`, trick: `Solid = soldiers in rows; liquid = a moving crowd; gas = free flyers.` }; } },
+  ],
+  biology: [
+    { band: 1, skillName: "Body systems", gen() { const o = pick([
+        { organ: "heart", sys: "circulatory" }, { organ: "lungs", sys: "respiratory" },
+        { organ: "stomach", sys: "digestive" }, { organ: "brain", sys: "nervous" },
+        { organ: "kidneys", sys: "excretory" }, { organ: "bones", sys: "skeletal" } ]);
+      const opts = shuffle(["circulatory", "respiratory", "digestive", "nervous", "excretory", "skeletal"]).slice(0, 3); if (!opts.includes(o.sys)) opts[0] = o.sys; const oo = shuffle(opts); const ai = oo.indexOf(o.sys);
+      return { skillName: "Body systems", q: `The ${o.organ} ${o.organ === "bones" ? "are" : "is"} mainly part of which body system?`, opts: oo, answer: o.sys, check: v => Number(v) === ai,
+        hints: [`Match the organ to the job it does.`, `What does the ${o.organ} mainly do?`], worked: `The ${o.organ} belongs to the ${o.sys} system.`, real: `Body systems work together to keep you alive.`, trick: `Name the organ's main JOB and the system follows.` }; } },
+    { band: 1, skillName: "Classifying animals", gen() { const g = pick([
+        { trait: "has fur and feeds its babies milk", group: "mammal" },
+        { trait: "has feathers and lays eggs", group: "bird" },
+        { trait: "breathes with gills and has scales", group: "fish" },
+        { trait: "has dry scales and lays eggs on land", group: "reptile" },
+        { trait: "has moist skin and lives partly in water", group: "amphibian" } ]);
+      const opts = shuffle(["mammal", "bird", "fish", "reptile", "amphibian"]).slice(0, 3); if (!opts.includes(g.group)) opts[0] = g.group; const oo = shuffle(opts); const ai = oo.indexOf(g.group);
+      return { skillName: "Classifying animals", q: `An animal that ${g.trait} belongs to which group?`, opts: oo, answer: g.group, check: v => Number(v) === ai,
+        hints: [`Focus on the key feature named.`, `Fur+milk = mammal; feathers = bird; gills = fish.`], worked: `An animal that ${g.trait} is a ${g.group}.`, real: `Classifying by features is how scientists organise all life.`, trick: `One standout feature usually names the group.` }; } },
+    { band: 0, skillName: "Living things", gen() { const items = [
+        { thing: "a gum tree", alive: true }, { thing: "a rock", alive: false }, { thing: "a magpie", alive: true },
+        { thing: "a cloud", alive: false }, { thing: "a mushroom", alive: true }, { thing: "a bicycle", alive: false },
+        { thing: "a goldfish", alive: true }, { thing: "a river", alive: false }, { thing: "a spider", alive: true } ]; const it = pick(items);
+      return { skillName: "Living things", q: `Is ${it.thing} a living thing?`, opts: ["Living", "Non-living"], answer: it.alive ? "Living" : "Non-living", check: v => Number(v) === (it.alive ? 0 : 1),
+        hints: [`Living things grow, feed, sense and reproduce (MRS GREN).`, `Does ${it.thing} do those things by itself?`], worked: `${it.thing.charAt(0).toUpperCase() + it.thing.slice(1)} is ${it.alive ? "living — it grows, feeds and reproduces" : "non-living — it doesn't feed, grow or reproduce by itself"}.`, real: `Scientists use MRS GREN to decide if something is alive.`, trick: `MRS GREN: Move, Respire, Sense, Grow, Reproduce, Excrete, Nutrition.` }; } },
+    { band: 2, skillName: "Food chains", gen() { const r = pick([
+        { org: "grass", role: "producer", why: "makes its own food from sunlight" },
+        { org: "a kangaroo eating grass", role: "herbivore (primary consumer)", why: "eats plants" },
+        { org: "a dingo eating a kangaroo", role: "carnivore (predator)", why: "eats other animals" },
+        { org: "a mushroom breaking down a log", role: "decomposer", why: "breaks down dead matter" } ]);
+      const opts = shuffle(["producer", "herbivore (primary consumer)", "carnivore (predator)", "decomposer"]); const ai = opts.indexOf(r.role);
+      return { skillName: "Food chains", q: `In a food chain, what is the role of ${r.org}?`, opts, answer: r.role, check: v => Number(v) === ai,
+        hints: [`Producers make food; consumers eat; decomposers recycle.`, `${r.org} ${r.why}.`], worked: `${r.org} is a ${r.role} — it ${r.why}.`, real: `Food chains show how energy flows through an ecosystem.`, trick: `Follow the energy: sun → producer → consumers → decomposers.` }; } },
+  ],
+};
 
 /* ============================================================
    CURATED BANKS — english + the three sciences + behaviour + communication.
@@ -897,6 +1150,16 @@ const BANKS = {
       hints: ["What steals your attention most?", "Out of sight beats willpower."], worked: `Removing the phone beats resisting it — attention is protected by design, not willpower.`, real: `Even a silent phone on the desk measurably lowers focus.`, trick: `Design the room so the distraction isn't there.` },
     { band: 4, skill: "Managing pressure", q: `A calm, useful thing to tell yourself the morning of a big exam is…`, opts: [`"If I fail, I'm worthless."`, `"I've prepared; I'll do my best and that's enough."`, `"Everyone's smarter than me."`, `"I must get 100%."`], a: 1,
       hints: ["Which is both kind and honest?", "Best effort, not perfection."], worked: `"I've prepared, I'll do my best" steadies nerves without pretending or catastrophising.`, real: `Sports psychologists teach exactly this self-talk.`, trick: `Aim for your best, not for perfect.` },
+    { band: 0, skill: "Being a good friend", q: `A new kid is sitting alone at lunch. The kindest thing to do is…`, opts: ["Ignore them", "Invite them to sit with you", "Point and whisper", "Wait for them to ask"], a: 1,
+      hints: ["Imagine it was your first day.", "A small invite can make someone's whole week."], worked: `Inviting them over is a tiny act with a huge kindness payoff.`, real: `Most lasting friendships start with one small welcome.`, trick: `Be the person you'd want on YOUR first day.` },
+    { band: 1, skill: "Handling mistakes", q: `You worked hard but still got a question wrong. The best next step is…`, opts: ["Rip up the page", "Look at WHY it was wrong and try a similar one", "Decide you're bad at it", "Never try that type again"], a: 1,
+      hints: ["A mistake is information — what does this one show?", "Understanding the slip is how it stops happening."], worked: `Studying why you slipped, then re-trying, turns a mistake into progress.`, real: `This is exactly how top students use their errors.`, trick: `Don't just mark it wrong — mine it for the lesson.` },
+    { band: 2, skill: "Study habits", q: `The best way to remember something long-term is to…`, opts: ["Re-read it many times", "Test yourself on it from memory", "Highlight it in colour", "Copy it out neatly"], a: 1,
+      hints: ["Which one makes your brain WORK to recall?", "Pulling info out beats pushing it in."], worked: `Retrieval practice (testing yourself) builds far stronger memory than re-reading.`, real: `The single most powerful study technique in the research.`, trick: `Close the book and ask "what do I remember?"` },
+    { band: 3, skill: "Focus & habits", q: `You keep getting distracted while studying. The most effective fix is…`, opts: ["Try harder to concentrate", "Study in short focused blocks with planned breaks", "Study for 6 hours straight", "Have the TV on for company"], a: 1,
+      hints: ["Attention is a muscle that tires — plan around it.", "Focused sprints beat marathons."], worked: `Short focused blocks (e.g. 25 min) with real breaks sustain attention far better than long grinds.`, real: `The idea behind the popular Pomodoro technique.`, trick: `Sprint, rest, repeat — don't try to marathon.` },
+    { band: 4, skill: "Balance & pressure", q: `In a stressful exam term, which habit protects your performance MOST?`, opts: ["Skipping meals to study", "Regular sleep, movement and breaks", "All-night cramming", "Dropping every hobby"], a: 1,
+      hints: ["Your brain is part of your body.", "What keeps the machine running well?"], worked: `Sleep, movement and breaks keep memory and focus sharp — they're part of studying, not a break from it.`, real: `Well-rested students consistently outperform crammers.`, trick: `Look after the body and the marks follow.` },
   ],
   communication: [
     { band: 0, skill: "Sharing & turns", q: `A friend grabs the ball you were using. The strongest first move is…`, opts: ["Grab it back", "Tell the teacher right away", `Say calmly "I was using that — can I finish, then you have a turn?"`, "Walk away upset"], a: 2,
@@ -925,6 +1188,16 @@ const BANKS = {
       hints: ["A short, polite door-opener helps.", "Ask for the floor, then share plainly."], worked: `A brief "can I add something?" gives you the floor without a fight — then keep it simple.`, real: `Even experienced people use this opener in meetings.`, trick: `A tiny question opens the door to speak.` },
     { band: 3, skill: "Handling conflict", q: `Someone misunderstood you and is upset. A repairing first step is…`, opts: ["Prove you're right", `"I think we got crossed wires — can I explain what I meant?"`, "Go silent", "Escalate it"], a: 1,
       hints: ["Lower the heat before the facts.", "Name the mix-up, then clarify calmly."], worked: `Naming the misunderstanding and offering to clarify calms things faster than proving a point.`, real: `Mediators open exactly this way.`, trick: `Fix the feeling first, then the facts.` },
+    { band: 1, skill: "Explaining ideas", q: `You want to explain your science project clearly. The best opening is…`, opts: ["A long list of every detail", "One sentence saying what it is and why it matters", "The hardest part first", "An apology for it being bad"], a: 1,
+      hints: ["Give the big picture before the details.", "Tell them the 'what' and 'why' up front."], worked: `A clear one-line overview first gives listeners a frame to hang the details on.`, real: `Every good talk, essay and pitch opens this way.`, trick: `Headline first, then the story.` },
+    { band: 2, skill: "Presentations", q: `Halfway through a talk you lose your place. The smoothest recovery is…`, opts: ["Apologise repeatedly", "Pause, glance at your notes, and carry on", "Rush to the end", "Give up and sit down"], a: 1,
+      hints: ["A short pause looks like thinking, not panic.", "The audience barely notices a calm reset."], worked: `A calm pause plus a glance at your notes reads as confident, not lost.`, real: `Even experienced speakers pause to regroup — it's invisible to the crowd.`, trick: `A silent beat beats a flustered scramble.` },
+    { band: 2, skill: "Active listening", q: `A friend is explaining a problem. The most helpful thing you can do is…`, opts: ["Jump in with your own story", "Listen, then reflect back what you heard", "Check your phone", "Tell them to get over it"], a: 1,
+      hints: ["Show them you actually understood.", "Repeating the gist proves you listened."], worked: `Reflecting back ("so you felt…") shows real understanding and makes people feel heard.`, real: `Counsellors and top managers do this constantly.`, trick: `Prove you heard by saying it back.` },
+    { band: 3, skill: "Persuading respectfully", q: `You want to convince your class to pick your idea. The most persuasive move is…`, opts: ["Say others' ideas are dumb", "Give a clear reason and a benefit for everyone", "Talk the loudest", "Ask the teacher to decide"], a: 1,
+      hints: ["People move for reasons and shared benefits.", "Attack the problem, not other people."], worked: `A clear reason plus a benefit for the whole group persuades far better than volume or put-downs.`, real: `The heart of every good pitch and campaign.`, trick: `Reason + "what's in it for us" wins rooms.` },
+    { band: 4, skill: "Interview & advocacy", q: `Asked "tell us about yourself" in an interview, the strongest reply is…`, opts: ["List your whole life story", "A short, confident summary of your strengths and interests", "Say 'I don't know'", "Talk about your weaknesses only"], a: 1,
+      hints: ["Be concise and positive.", "Two or three relevant strengths, briefly."], worked: `A crisp summary of relevant strengths and interests shows self-awareness and confidence.`, real: `The same skill helps in interviews, applications and networking.`, trick: `Three strengths, thirty seconds, done.` },
   ],
   /* Bonus pools — authored earlier, reused in ICAS/Explore mixes and the Surprise tool.
      Not standalone subjects (see DECISIONS #13). */
@@ -987,6 +1260,67 @@ const TEACH = {
   "selMath:Working backwards": `⏪ Some puzzles hand you the ENDING and ask for the start. Run the movie backwards: undo the last step first, then the one before. "+3 then ×2 gave 16"? Un-double (8), un-add (5). Rewind, don't re-solve.`,
   "thinking:Logical deduction": `🔗 "MUST be true" is the strictest test in logic: true in EVERY possible world. The killer move is inventing a counter-example — one weird case where the claim breaks. If you can imagine it, the answer isn't "must".`,
   "thinking:Venn diagram counting": `⭕ Two overlapping circles tame any "some do both" puzzle. The golden rule: fill the OVERLAP first, then the outer parts shrink by themselves. Most wrong answers come from counting the both-group twice.`,
+
+  /* ---- English ---- */
+  "english:Synonyms": `🔁 A synonym is a word wearing a different costume — same meaning underneath. "Happy / glad / cheerful" all point at the same feeling. Great writers keep a rack of costumes so they never repeat the same word twice on a page.`,
+  "english:Antonyms": `↔️ Antonyms are meaning-opposites: hot/cold, up/down. The exam trick is sneaky — it hides SYNONYMS among the choices to tempt you. Always ask "what's the REVERSE?", not "what's related?"`,
+  "english:Homophones": `👂 Homophones are sound-twins with different jobs: their / there / they're all sound identical. The test is meaning: swap in the long form. "They are going" → they're. "The dog's tail" → its. Say it in full and the right one appears.`,
+  "english:Parts of speech": `🏷️ Every word has a job. Nouns NAME (dog, city), verbs DO (run, think), adjectives DESCRIBE nouns (fluffy dog), adverbs describe verbs (runs quickly). Knowing the job is how you build and fix sentences.`,
+  "english:Similes & metaphors": `🎭 Both paint pictures. A simile says something is LIKE another ("as brave as a lion") — it keeps the word "like" or "as". A metaphor is bolder: it says one thing IS another ("the classroom was a zoo"). Spot the "like/as" and you've spotted the simile.`,
+  "english:Prefixes & suffixes": `🧩 Long words are LEGO. A prefix clips onto the front and bends the meaning: "un-" = not, "re-" = again, "pre-" = before. Learn a prefix once and you unlock dozens of words you've never seen — decoding, not memorising.`,
+  "english:Sentence types": `❓ A sentence's job shows in its ending. A statement tells (.), a question asks (?), a command orders (. — "Sit down."), an exclamation bursts with feeling (!). Mixing all four gives your writing rhythm.`,
+  "english:Spelling": `✍️ Tricky words are tamed by chunking: nec‑es‑sar‑y, sep‑a‑rate ("there's A RAT in sepARATe"). Say the chunks, watch the double letters, and use a memory hook for the ones that keep tripping you.`,
+  "english:Persuasive techniques": `📣 Persuasion has a toolkit: facts & statistics (proof), rhetorical questions (make you nod), emotive language (make you feel), and repetition (make it stick). Naming the tool is half of an English analysis mark.`,
+  "english:Analysing language": `🔬 Analysis isn't "what does it say" but "what does the writer DO, and why". Name the technique (metaphor, personification…), then explain its EFFECT on the reader. Technique + effect is the whole game.`,
+
+  /* ---- Physics ---- */
+  "physics:Motion & speed": `🏃 Speed is just a comparison: how much distance for how much time. "60 km/h" literally means "60 km IF you kept it up for one hour". So speed = distance ÷ time — and the units (km/h, m/s) tell you exactly how to divide.`,
+  "physics:Forces (F=ma)": `🚀 Push something heavy and it accelerates slowly; push something light and it leaps. Newton bottled that: Force = mass × acceleration. Bigger force → more acceleration; more mass → less. It sizes everything from prams to rockets.`,
+  "physics:Electricity (Ohm's law)": `🔌 Voltage is the push, current is the flow, resistance is the squeeze. Ohm tied them together: V = I × R. More push → more flow; more squeeze → less flow. Cover the letter you want on the triangle to get its formula.`,
+  "physics:Density": `🧱 Density asks "how much stuff is crammed into this space?" — mass ÷ volume. A cotton ball and a marble can be the same size but the marble packs more mass in, so it's denser — and it sinks while cotton floats.`,
+  "physics:Waves": `🌊 A wave carries energy, not stuff. Its speed = how OFTEN a wave passes (frequency) × how LONG each wave is (wavelength). v = f × λ. That one line gives the speed of sound, light and the ripples in a pond.`,
+  "physics:Energy": `⚡ Energy is the currency of the universe — it never vanishes, it just changes form. A stretched band stores elastic energy; let go and it becomes movement. Tracking "where did the energy go?" explains almost everything.`,
+
+  /* ---- Chemistry ---- */
+  "chemistry:States of matter": `🧊 Same particles, different dance. In a SOLID they're locked in rows; in a LIQUID they slide past each other; in a GAS they fly free. Add heat to loosen the dance (melt, boil); remove it to tighten (freeze, condense).`,
+  "chemistry:Particle theory": `🔬 Everything is made of tiny particles in constant motion. Heat makes them move faster and spread out; cooling packs them back. This one idea explains melting, smells drifting across a room, and why gases fill any container.`,
+  "chemistry:Acids & bases (pH)": `🍋 The pH scale (0–14) measures how acidic or basic something is. 7 is neutral (pure water). Below 7 is acid (lemon ~2, punchy and sour); above 7 is basic (soap ~9, slippery). Low = acid, high = base — that's the whole map.`,
+  "chemistry:Element symbols": `🔤 Elements are chemistry's alphabet. Each has a 1–2 letter symbol: O for oxygen, C for carbon. The odd ones (Na, Fe, Au, K) come from old Latin names — "Na" is natrium (sodium). Learn the alphabet and equations become readable.`,
+  "chemistry:Chemical reactions": `⚗️ In a reaction, atoms don't appear or vanish — they just swap partners. That's why mass is conserved: everything you start with is still there, rearranged. Bubbles, colour changes and heat are clues that new substances formed.`,
+
+  /* ---- Biology ---- */
+  "biology:Body systems": `🫀 Your body is a team of systems, each with a job: the circulatory system (heart) delivers blood, the respiratory system (lungs) trades gases, the digestive system (stomach) extracts fuel, the nervous system (brain) sends signals. Match organ → job → system.`,
+  "biology:Cells": `🧫 Cells are the tiny bricks all living things are built from. Plant cells have extras animals lack — a stiff cell wall (so plants stand tall) and chloroplasts (to catch sunlight). The nucleus is the control room holding the DNA instructions.`,
+  "biology:Classifying animals": `🐾 Scientists sort animals by standout features: fur + milk = mammal, feathers = bird, gills + scales = fish, dry scales = reptile, moist skin = amphibian. One key feature usually names the whole group.`,
+  "biology:Living things": `🌱 How do we know something's alive? MRS GREN: it Moves, Respires, Senses, Grows, Reproduces, Excretes and needs Nutrition. A rock does none; a gum tree does them all. Run the checklist and you can classify anything.`,
+  "biology:Food chains": `🔗 A food chain follows the energy: the sun feeds PRODUCERS (plants), which feed CONSUMERS (animals), and DECOMPOSERS recycle the leftovers. The arrows always point the way the energy travels — from the eaten to the eater.`,
+  "biology:Genetics": `🧬 You inherit two copies of each gene, one per parent. A Punnett square is just a tidy grid of the four possible combinations. For two Bb parents, one box in four is bb — that's where the 3:1 ratio comes from.`,
+
+  /* ---- Wellbeing & communication ---- */
+  "behaviour:Growth mindset": `🌱 Your brain is a muscle, not a fixed size. "I can't do this" slams a door; "I can't do this YET" leaves it open. That one word turns a verdict into a stage on a journey — and the science shows it genuinely lifts results.`,
+  "behaviour:Managing stress": `🧩 A huge task feels impossible because your brain sees the whole mountain at once. The fix: chunk it, then start ONE chunk. Momentum beats motivation — action shrinks the mountain far faster than worry does.`,
+  "communication:Active listening": `👂 Real listening isn't waiting for your turn to talk. It's facing the person, and asking a follow-up question that proves you heard. WAIT — "Why Am I Talking?" — and listen twice as much as you speak.`,
+  "communication:Explaining ideas": `💡 To explain something tricky, don't reach for big words — reach for something the listener ALREADY knows. Link the new idea to the familiar one ("it's like when…") and it clicks. Great teachers build bridges, not walls.`,
+
+  /* ---- Extra cards so EVERY band of every subject teaches a concept ---- */
+  "english:Apostrophes": `✏️ Apostrophes do two jobs. They shrink words (do not → don't — the apostrophe marks the missing letters), and they show ownership (the dog's bone). The famous trap: "its" (belonging) vs "it's" (= it is). If "it is" fits, use it's.`,
+  "english:Nouns & verbs": `🏃 The two engines of every sentence: a NOUN (who or what — dog, city, courage) and a VERB (the action or state — runs, thinks, is). Find the verb first ("what's happening?"), then the noun doing it, and any sentence untangles.`,
+  "english:Plurals": `➕ Most words just add -s (cat → cats), but the oldest words change shape: child → children, foot → feet, mouse → mice. And many -f words flip to -ves (leaf → leaves). The weird ones are the ancient, everyday words.`,
+  "english:Irregular plurals": `➕ Most plurals add -s, but a handful of ancient words morph instead: child → children, tooth → teeth, person → people. They're irregular because they're so old and common they kept their original forms.`,
+  "physics:Push & pull": `👐 Every force is a push or a pull. Kick a ball — that's a push away from you. Open a drawer — a pull toward you. Even gravity is a pull. Friction is a special push-back that fights motion. Spotting the push/pull is step one in physics.`,
+  "physics:Light & shadow": `🔦 Light travels in straight lines. When something solid blocks those lines, the light can't bend around it — so a dark shadow forms behind it. Move the light closer and the shadow grows; that's exactly how a sundial tells time.`,
+  "physics:Circuits": `🔋 Electricity needs a complete loop, like a running track. If there's any gap, the current stops and the bulb goes dark. A switch is just a drawbridge in the loop: closed = current flows, open = it stops.`,
+  "physics:Earth & space": `🌍 Earth does two spins. It rotates once a day on its axis — that's what gives us day and night as your side turns toward or away from the Sun. And it orbits the Sun once a year, which (with its tilt) gives us the seasons.`,
+  "chemistry:State changes": `🧊 Heating and cooling move matter between solid, liquid and gas. Add heat and particles break free: solid→liquid is melting, liquid→gas is evaporating. Remove heat and they lock up: gas→liquid is condensing, liquid→solid is freezing.`,
+  "chemistry:Solutions": `🥤 When something dissolves, the thing that disappears is the SOLUTE and the liquid doing the dissolving is the SOLVENT. Salty water: salt = solute, water = solvent. Stir, heat, or crush the solute and it dissolves faster.`,
+  "chemistry:Simple reactions": `⚗️ A chemical reaction makes something NEW. The clues: bubbles (a new gas), a colour change, heat or light, or a smell. Vinegar + bicarb fizzing is a new gas being born — that's why it's a reaction, not just mixing.`,
+  "chemistry:Mixing": `🧂 Some things dissolve into water and vanish evenly (salt, sugar); others don't (sand, oil). Mixing doesn't make a new substance — you could get the parts back. That's what makes it different from a chemical reaction.`,
+  "chemistry:Periodic table": `📋 The periodic table is chemistry's map. Elements are lined up by atomic number (how many protons they have), and elements in the same column behave alike. Once you know an element's spot, you can predict how it acts.`,
+  "chemistry:Reaction rates": `🏁 Reactions go faster when particles collide more often and harder: more heat, higher concentration, smaller pieces (more surface), or a catalyst. A catalyst is a shortcut through the energy "hill" — and it isn't used up.`,
+  "biology:Habitats": `🏡 A habitat is an animal or plant's home — the place that gives it food, water, shelter and space. A fish's habitat is water; a possum's is the forest. Protecting habitats is how we protect the species that depend on them.`,
+  "biology:Adaptations": `🐫 An adaptation is a feature that helps a living thing survive where it lives. A camel's hump stores fat for energy; a cactus's spines cut water loss. Adaptations are evolution's answers to the challenges of a habitat.`,
+  "biology:Interdependence": `🕸️ Living things depend on each other. Plants make food, animals eat plants (or each other), and decomposers recycle the dead back into the soil. Remove one link and the whole web feels it — that's interdependence.`,
+  "biology:Evolution": `🧬 Living things vary. When a trait helps survival, its owners tend to survive and breed, passing the trait on — so over many generations it becomes common. That's natural selection, Darwin's big idea, still shaping life today.`,
 };
 
 /* ============================================================
@@ -1175,6 +1509,22 @@ const Engine = {
       const it = (pool.length ? pick(pool) : SELECTIVE_MATH_GENS[0]).gen();
       return { skillId: "selMath:" + it.skillName, ...it };
     }
+    /* Subject generators: infinite ORIGINAL variety for english & the sciences, mixed with
+       the curated bank (which still carries concept items the generators don't). This is the
+       fix for "same questions again and again" beyond maths. */
+    if (SUBJECT_GENS[subject]) {
+      const gens = SUBJECT_GENS[subject];
+      if (opts.skillId) {
+        const nm = opts.skillId.split(":").slice(1).join(":");
+        const g = gens.find(x => x.skillName === nm);
+        if (g) { const it = g.gen(); return { skillId: subject + ":" + it.skillName, ...it }; }
+      } else {
+        let use = gens.filter(g => g.band === band);
+        if (!use.length) use = gens.filter(g => g.band <= band);
+        if (!use.length) use = gens;
+        if (use.length && Math.random() < 0.65) { const it = pick(use).gen(); return { skillId: subject + ":" + it.skillName, ...it }; }
+      }
+    }
     /* Selective reading/maths pools live in SELECTIVE_BANK, not BANKS. */
     const bank = SELECTIVE_BANK[subject] || BANKS[subject] || [];
     let pool = bank.filter(i => i.band === band);
@@ -1193,7 +1543,16 @@ const Engine = {
       q: item.q, opts: item.opts,
       answer: item.opts ? item.opts[item.a] : String(item.a),
       check: item.opts ? (v) => Number(v) === item.a
-        : (v) => normAns(v) === normAns(item.a) || (typeof item.a === "string" && normAns(v).includes(normAns(item.a))),
+        : (v) => {
+            const nv = normAns(v), na = normAns(item.a);
+            if (nv === na) return true;
+            // Lenient match ONLY for non-numeric text answers, and only as a WHOLE WORD
+            // (so "the mitochondria" is accepted, but "600" is NOT accepted for "60",
+            //  and "tired" is NOT accepted for "red"). Numeric answers are exact-only.
+            if (typeof item.a !== "string" || na === "" || !isNaN(Number(na))) return false;
+            const esc = na.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            return new RegExp("(^|\\s)" + esc + "(\\s|$)").test(nv);
+          },
       hints: item.hints, worked: item.worked, real: item.real, trick: item.trick,
     };
   },
@@ -1593,6 +1952,51 @@ function weeklyStats(childId) {
   const xp = ses.reduce((t, s) => t + (s.xp || 0), 0);
   return { days, mins, xp, count: ses.length };
 }
+/* ---------- Parent-facing mastery: turn per-skill accuracy into a "where is my child"
+   picture. Reads S.quizStats (per-skill attempts/correct) + S.levels (diagnostic placement).
+   No new data collected — this just surfaces what the app already measures on-device. */
+const LEVEL_LABELS = { 1: "Building foundations", 2: "On track for year level", 3: "Extending ahead" };
+function skillDisplayName(skillId) {
+  if (skillId.includes(":")) return skillId.split(":").slice(1).join(":");
+  const m = (typeof MATH_SKILLS !== "undefined") && MATH_SKILLS.find(s => s.id === skillId);
+  return m ? m.name : skillId;
+}
+function subjectOfSkill(skillId) { return skillId.includes(":") ? skillId.split(":")[0] : "maths"; }
+function subjLabel(id) {
+  const s = (typeof SUBJECTS !== "undefined") && SUBJECTS.find(x => x.id === id);
+  if (s) return { name: s.name, glyph: s.glyph };
+  const extra = { selMath: ["Selective Maths", "🏆"], selReading: ["Selective Reading", "🏆"], thinking: ["Thinking Skills", "🧩"] };
+  return extra[id] ? { name: extra[id][0], glyph: extra[id][1] } : { name: id, glyph: "•" };
+}
+function masteryReport(childId) {
+  const stats = (S.quizStats || {})[childId] || {};
+  const levels = S.levels[childId] || {};
+  const bySubject = {};
+  for (const [sid, st] of Object.entries(stats)) {
+    if (!st.a) continue;
+    const subj = subjectOfSkill(sid);
+    (bySubject[subj] = bySubject[subj] || []).push({ name: skillDisplayName(sid), a: st.a, c: st.c, pct: Math.round(100 * st.c / st.a) });
+  }
+  const order = Object.keys(bySubject).sort((a, b) => bySubject[b].reduce((t, x) => t + x.a, 0) - bySubject[a].reduce((t, x) => t + x.a, 0));
+  if (!order.length) return `<small class="dim">No practice yet — this fills in as your child answers questions.</small>`;
+  return order.map(subj => {
+    const skills = bySubject[subj];
+    const totA = skills.reduce((t, x) => t + x.a, 0), totC = skills.reduce((t, x) => t + x.c, 0);
+    const pct = Math.round(100 * totC / totA);
+    const lv = levels[subj];
+    const levelTag = lv && lv.diag === "done" ? `<span class="tag">${LEVEL_LABELS[lv.level] || ("Level " + lv.level)}${lv.challenge ? " · 🚀 ahead" : ""}</span>` : "";
+    const strengths = skills.filter(x => x.a >= 2 && x.pct >= 80).sort((a, b) => b.pct - a.pct).slice(0, 3);
+    const practise = skills.filter(x => x.a >= 2 && x.pct < 60).sort((a, b) => a.pct - b.pct).slice(0, 3);
+    const col = pct >= 75 ? "var(--good)" : pct >= 50 ? "var(--spark)" : "var(--warn)";
+    const L = subjLabel(subj);
+    return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)">
+      <div class="row spread"><span>${L.glyph} <b>${esc(L.name)}</b> ${levelTag}</span><span style="color:${col};font-weight:800">${pct}%</span></div>
+      <small class="dim">${totC}/${totA} correct · ${skills.length} concept${skills.length > 1 ? "s" : ""} practised</small>
+      ${strengths.length ? `<div style="margin-top:3px"><small>💪 Strong: ${strengths.map(x => `${esc(x.name)} (${x.pct}%)`).join(", ")}</small></div>` : ""}
+      ${practise.length ? `<div style="margin-top:2px"><small>🎯 To practise: ${practise.map(x => `${esc(x.name)} (${x.pct}%)`).join(", ")}</small></div>` : ""}
+    </div>`;
+  }).join("");
+}
 function screenHome(childId) {
   const c = S.children.find(x => x.id === childId);
   if (!c) return screenProfiles();
@@ -1927,6 +2331,7 @@ function presentItem(item, isRepeat) {
   if (item.opts) { setOpts(item.opts); showInput(false); }
   else { setOpts([]); showInput(true); document.getElementById("kidin").focus(); }
   if (SES.mode === "exam") { setActions([["Skip →", () => recordExam(false, true)]]); startExamClock(); }
+  else if (SES.mode === "selmock") { setActions([["Skip →", () => recordMock(false)], ["💡 Hint", () => giveHint()]]); startExamClock(); }
   else setActions([["💡 Hint", () => giveHint()], ["🧰 Tools", () => openTools()]]);
 }
 function giveHint() {
@@ -1956,6 +2361,7 @@ function handleAnswer(value, isTyped) {
   if (SES.mode === "quiz") { SES.answered = true; return recordQuiz(correct); }
   if (SES.mode === "review") { SES.answered = true; return recordReview(correct); }
   if (SES.mode === "exam") return recordExam(correct, false);
+  if (SES.mode === "selmock") return recordMock(correct);
   if (SES.mode === "selective") return recordSelective(correct);
   /* learn / challenge */
   bumpStat(it.skillId, correct);
@@ -2256,6 +2662,10 @@ function screenSelective(childId) {
       exam-style questions with full worked solutions when you get stuck. When you make a mistake, I'll show you a way
       to solve it and revise the idea. <b>These are original practice questions, not real past papers.</b>
       For the official format and dates, check the NSW Department of Education website with a parent.</p></div>
+    <div class="card" style="border:1px solid var(--spark)">
+      <div class="row spread"><div><b>🏁 Full mock paper</b><div class="dim"><small>All four areas in one timed sitting — build exam stamina and pacing.</small></div></div>
+      <button class="spark small" onclick="startSelectiveMock('${childId}')">Start mock</button></div></div>
+    <p class="dim" style="margin:4px 2px"><small>Or practise one area at a time:</small></p>
     ${SELECTIVE_SECTIONS.map(s => `<div class="card">
       <div class="row spread"><div><b>${s.name}</b></div>
       <button class="primary small" onclick="${s.writing ? `startWritingSession('${childId}')` : `startSelectiveSession('${childId}','${s.id}')`}">Practise</button></div></div>`).join("")}`);
@@ -2305,6 +2715,62 @@ function finishSelective() {
   say(`🏆 ${SELECTIVE_SECTIONS.find(s=>s.id===sec).name}: ${SES.selCorrect}/${SES.selCount} (${pct}%). ${pct >= 70 ? "Strong — that's Selective-ready thinking!" : "Great effort — the ones you missed are in your review queue so they'll come back and stick."}\nConsistency across weeks beats any single score, and I can't promise a result — but practice makes exam day feel familiar instead of scary.`);
   setOpts([]); showInput(false);
   setActions([["Another round 🏆", () => startSelectiveSession(cid, sec)], ["Sections 📋", () => { endSessionSilently(); screenSelective(cid); }]]);
+}
+/* ---------- Full Selective MOCK PAPER: all four areas in one timed sitting, drawing the
+   real Selective content (Reading + Mathematical Reasoning + Thinking Skills, then Writing).
+   One shot per question, exam-paced; misses bank to spaced review, worked solution shown. ---------- */
+function startSelectiveMock(childId) {
+  const c = S.children.find(x => x.id === childId);
+  if (!c) return screenProfiles();
+  SES = examSessionShell(childId, c, "selmock");
+  SES.band = Math.max(1, bandOf(c.year));
+  SES.mock = {
+    plan: [
+      { id: "reading", name: "Reading", n: 5 },
+      { id: "mathreason", name: "Mathematical Reasoning", n: 5 },
+      { id: "thinking", name: "Thinking Skills", n: 5 },
+    ],
+    si: 0, qi: 0, scores: [{ c: 0, n: 0 }, { c: 0, n: 0 }, { c: 0, n: 0 }], writing: true,
+  };
+  renderSessionShell(c, "🏆 Selective mock paper");
+  say(`🏆 Full Selective mock paper — four areas in one sitting, about ${CONFIG.examSecondsPerQ}s a question. It's a marathon, not a sprint: if one's tricky, bank a guess and move on so you don't lose time. First area: Reading. Ready… ⏱`,
+    "Original, exam-style — not a real past paper. Check official sources for the current format.");
+  setTimeout(nextMock, 1000);
+}
+function nextMock() {
+  stopExamClock();
+  const m = SES.mock;
+  const sec = m.plan[m.si];
+  if (m.qi >= sec.n) { // current section complete → advance
+    m.si++; m.qi = 0;
+    if (m.si >= m.plan.length) return m.writing ? finishMock() : finishMock();
+    const ns = m.plan[m.si];
+    say(`✅ ${sec.name}: ${m.scores[m.si - 1].c}/${sec.n}. Next area — ${ns.name}. Keep the pace up! ⏱`);
+    setTimeout(nextMock, 1400); return;
+  }
+  m.qi++;
+  presentItem(Engine.selectiveQuestion(sec.id, SES.band, { avoid: SES.recentQs }));
+}
+function recordMock(correct) {
+  if (SES.answered) return;
+  SES.answered = true; stopExamClock();
+  bumpStat(SES.item.skillId, correct);
+  const sc = SES.mock.scores[SES.mock.si]; sc.n++; if (correct) sc.c++;
+  if (correct) { say(GREETINGS.celebrate()); addXp(CONFIG.xpCorrect); }
+  else { queueReview(SES.item); addXp(CONFIG.xpAttempt); say(`Not quite — it's saved to your review so we lock it in later. Here's the way to crack it:\n\n${SES.item.worked}`); }
+  const m = classMilestone();
+  setTimeout(nextMock, correct ? (m ? 1300 : 900) : 1900);
+}
+function finishMock() {
+  stopExamClock();
+  const m = SES.mock, cid = SES.childId;
+  const total = m.scores.reduce((t, s) => t + s.c, 0), tot = m.scores.reduce((t, s) => t + s.n, 0);
+  const pct = tot ? Math.round(total / tot * 100) : 0;
+  if (pct >= 70) { confetti(); awardBadge(cid, "Mock Paper Finisher"); }
+  const lines = m.plan.map((p, i) => `• ${p.name}: ${m.scores[i].c}/${m.scores[i].n}`).join("\n");
+  say(`🏁 Mock paper done — you sat a full multi-section paper!\n\n${lines}\n\nOverall: ${total}/${tot} (${pct}%). ${pct >= 70 ? "That's strong, Selective-ready thinking." : "Finishing a whole paper takes real stamina — the ones you missed are in your review queue to lock in."}\nConsistency across weeks beats any single score, and I can't promise a result — but sitting full papers makes the real day feel familiar. Last area: Writing ✍️`);
+  setOpts([]); showInput(false);
+  setActions([["✍️ Do the Writing section", () => startWritingSession(cid)], ["🏆 Back to sections", () => { endSessionSilently(); screenSelective(cid); }]]);
 }
 function startWritingSession(childId) {
   const c = S.children.find(x => x.id === childId);
@@ -2467,7 +2933,6 @@ function startSpeakActivity(id) {
   if (inp) inp.placeholder = (SES.child.voiceInput && STT.supported) ? "Tap 🎙️ and talk, or type…" : "Type your answer…";
   const acts = [["🎲 Another activity", () => speakMenu()], ["Home ⭐", () => endSession()]];
   setActions(acts);
-  if (SES.child.voiceInput && STT.supported && inp) { /* nudge the mic */ }
 }
 function speakReply(text) {
   const a = SES.speakAct || {};
@@ -3064,6 +3529,10 @@ function parentTab(tab) {
     }).join("");
     return `<div class="card"><h2>This week</h2>
       <table class="stats"><tr><th>Child</th><th>Sessions</th><th>Time</th><th>XP</th><th>Subjects placed</th><th>Reviews due</th></tr>${rows}</table></div>
+    <div class="card"><h2>Learning level by subject</h2>
+      <p class="dim">Where each child sits and how they're tracking, concept by concept — real progress, not just time spent.</p>
+      ${S.children.map(c => `<div style="margin-top:10px"><div class="row" style="gap:6px;align-items:baseline"><b>${c.avatar} ${esc(c.nickname)}</b> <small class="dim">Year ${c.year} · ${c.curriculum}</small></div>${masteryReport(c.id)}</div>`).join("")}
+      <p class="dim" style="margin-top:8px"><small>Accuracy is measured on original practice questions and stored on this device only. "To practise" concepts automatically feed spaced review.</small></p></div>
     <div class="card"><h2>North Star metric</h2>
       <p class="dim">Subjects reaching a "just right" diagnostic, then a second session within 7 days.</p>
       <div class="row" style="margin-top:10px;gap:24px">

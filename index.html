@@ -264,6 +264,34 @@ button.primary, button.spark { border-radius: 999px; }
 ul.clean { list-style: none; } ul.clean li { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
 .privacy p, .privacy li { margin-bottom: 8px; }
 
+/* ---------- 💎 Gems, Spark Shop & bubbly polish (Duolingo-style delight, no dark patterns) ---------- */
+.chip.gem { color: #6ce0ff; font-weight: 800; background: rgba(108,224,255,.12); }
+.chip.gem.pop { animation: xppop .4s ease; }
+.sticker { font-size: .8em; margin-left: -2px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+.gemfloat {
+  position: absolute; right: 18px; color: #6ce0ff; font-weight: 800; font-size: 1.1em;
+  pointer-events: none; animation: gemrise 1.2s ease-out forwards; text-shadow: 0 2px 6px rgba(0,0,0,.5);
+}
+@keyframes gemrise { 0% { opacity: 0; transform: translateY(10px) scale(.6); } 25% { opacity: 1; transform: translateY(-4px) scale(1.1); } 100% { opacity: 0; transform: translateY(-40px) scale(1); } }
+.tile-pop { transition: transform .12s ease, box-shadow .12s ease; }
+.tile-pop:hover, .tile-pop:active { transform: translateY(-3px) scale(1.015); box-shadow: 0 10px 26px rgba(0,0,0,.32); }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-top: 10px; }
+.shop-item {
+  background: var(--card-2); border-radius: var(--radius); padding: 14px 12px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; border: 2px solid transparent;
+  transition: transform .12s ease;
+}
+.shop-item:hover { transform: translateY(-2px); }
+.shop-item.equipped { border-color: var(--spark); box-shadow: 0 0 0 3px rgba(255,209,102,.18); }
+.shop-prev { height: 40px; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.shop-emoji { font-size: 2em; line-height: 1; }
+.swatch { width: 16px; height: 26px; border-radius: 6px; display: inline-block; box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
+.shop-name { font-size: .9em; font-weight: 700; min-height: 2.4em; display: flex; align-items: center; }
+.shop-item button { width: 100%; }
+.shop-item button.spark { background: linear-gradient(90deg, var(--spark), var(--spark-2)); color: #2a1a00; font-weight: 800; }
+.shop-item button[disabled] { opacity: .5; }
+.msgs { position: relative; }
+
 </style>
 </head>
 <body>
@@ -323,7 +351,14 @@ const PERSONAS = [
   { id: "pip",    name: "Pip",    emoji: "🐨", color: "#7ce38b", blurb: "Gentle and patient",     pitch: 1.3,  rate: 0.95, hi: "Hello, I'm Pip 🐨 We'll take it step by step." },
   { id: "byte",   name: "Byte",   emoji: "🤖", color: "#7de0ff", blurb: "Curious and clever",     pitch: 1.0,  rate: 1.1,  hi: "Byte online 🤖 Let's solve some puzzles!" },
 ];
-function personaById(id) { return PERSONAS.find(p => p.id === id) || PERSONAS[0]; }
+function personaById(id) {
+  const p = PERSONAS.find(p => p.id === id);
+  if (p) return p;
+  // Unlockable Spark Shop buddies (SHOP defined later; guarded for load order).
+  const b = (typeof SHOP !== "undefined" && SHOP.buddies || []).find(x => x.id === id);
+  if (b) return { id: b.id, name: b.name, emoji: b.emoji, color: "#ffd166", blurb: b.blurb, pitch: b.pitch, rate: b.rate, hi: b.hi };
+  return PERSONAS[0];
+}
 
 /* Curricula (AU first, plus international — costless breadth for the pilot pool) */
 const CURRICULA = [
@@ -1659,6 +1694,76 @@ const Engine = {
   nextReviewInterval(idx) { const iv = CONFIG.reviewIntervalsDays; return iv[Math.min(idx, iv.length - 1)]; },
 };
 
+/* ============================================================
+   SPARK SHOP — earn 💎 gems by LEARNING, spend on look-and-feel.
+   Child-safety: gems are EARN-ONLY (never bought with money, never lost),
+   purely cosmetic, and there is no timer/streak pressure to spend. Delight
+   without dark patterns. Themes override CSS variables; stickers decorate the
+   avatar; buddies unlock extra companions (all still Spark under the hood).
+   ============================================================ */
+const SHOP = {
+  themes: [
+    { id: "midnight",  name: "Midnight",     emoji: "🌌", cost: 0,   vars: {} },
+    { id: "bubblegum", name: "Bubblegum",    emoji: "🍬", cost: 40,  vars: { "--bg": "#2a1030", "--bg-2": "#3d1a45", "--card": "#4a1f52", "--card-2": "#5e2866", "--spark": "#ff8fd0", "--spark-2": "#ff6fc0", "--accent": "#ff9ff3", "--accent-2": "#f368e0" } },
+    { id: "ocean",     name: "Deep Ocean",   emoji: "🌊", cost: 40,  vars: { "--bg": "#04203a", "--bg-2": "#063452", "--card": "#0a3f66", "--card-2": "#0e4f7d", "--spark": "#4fd1ff", "--spark-2": "#2bb8f0", "--accent": "#57d3ff", "--accent-2": "#2aa7e0" } },
+    { id: "forest",    name: "Enchanted Forest", emoji: "🌳", cost: 60, vars: { "--bg": "#08240f", "--bg-2": "#0d3418", "--card": "#124021", "--card-2": "#17512b", "--spark": "#9be36a", "--spark-2": "#7ccf4d", "--good": "#c7f59b", "--accent": "#67e0a3", "--accent-2": "#33c184" } },
+    { id: "sunset",    name: "Sunset Blaze",  emoji: "🌅", cost: 60,  vars: { "--bg": "#2a1208", "--bg-2": "#3e1c0c", "--card": "#4f240f", "--card-2": "#642e14", "--spark": "#ffb454", "--spark-2": "#ff983d", "--accent": "#ff8a5c", "--accent-2": "#f56c3c" } },
+    { id: "galaxy",    name: "Galaxy Grape",  emoji: "🔮", cost: 90,  vars: { "--bg": "#160a2e", "--bg-2": "#221041", "--card": "#2e1657", "--card-2": "#3b1d6e", "--spark": "#c39bff", "--spark-2": "#a879ff", "--accent": "#b18cff", "--accent-2": "#8f5cff" } },
+    { id: "candyfloss", name: "Cotton Candy", emoji: "☁️", cost: 90,  vars: { "--bg": "#1a1330", "--bg-2": "#271b47", "--card": "#33245c", "--card-2": "#412e72", "--spark": "#ffd1f0", "--spark-2": "#ffb3e6", "--accent": "#a5f3ff", "--accent-2": "#7fe0ff" } },
+  ],
+  stickers: [
+    { id: "none",   name: "None",       emoji: "",   cost: 0 },
+    { id: "crown",  name: "Crown",      emoji: "👑", cost: 25 },
+    { id: "rocket", name: "Rocket",     emoji: "🚀", cost: 25 },
+    { id: "rainbow",name: "Rainbow",    emoji: "🌈", cost: 25 },
+    { id: "bolt",   name: "Lightning",  emoji: "⚡", cost: 35 },
+    { id: "unicorn",name: "Unicorn",    emoji: "🦄", cost: 35 },
+    { id: "dragon", name: "Dragon",     emoji: "🐉", cost: 50 },
+    { id: "star2",  name: "Glow Star",  emoji: "💫", cost: 50 },
+    { id: "fire",   name: "Fire",       emoji: "🔥", cost: 50 },
+    { id: "medal",  name: "Gold Medal", emoji: "🏅", cost: 70 },
+  ],
+  buddies: [
+    { id: "luna",  emoji: "🌙", name: "Luna",  cost: 80,  blurb: "Dreamy and thoughtful", pitch: 1.2, rate: 0.95, hi: "Luna here 🌙 Let's wonder together." },
+    { id: "ziggy", emoji: "🦎", name: "Ziggy", cost: 80,  blurb: "Zippy and playful",     pitch: 1.35, rate: 1.1, hi: "Ziggy! 🦎 Ready to zoom?" },
+    { id: "coral", emoji: "🐬", name: "Coral", cost: 110, blurb: "Kind and splashy",       pitch: 1.25, rate: 1.0, hi: "Hi, I'm Coral 🐬 Dive in!" },
+  ],
+};
+const GEMS = { correct: 1, milestone: 5, sessionFinish: 3, paperFinish: 8, diagnosticDone: 4 };
+function shopItem(kind, id) { return (SHOP[kind] || []).find(x => x.id === id); }
+
+/* ============================================================
+   PRACTICE PAPERS — original, exam-STYLE full papers a kid can "sit".
+   Each section pulls from a generator/bank pool (never real past papers).
+   Timed, one-shot per question, misses bank to spaced review + concept re-teach.
+   ============================================================ */
+const PAPERS = [
+  { id: "sel-full", name: "Selective — Full Mock Paper", glyph: "🏆", tag: "NSW Selective", minsEach: 60, writing: true,
+    blurb: "All areas in one sitting — the real exam shape.",
+    sections: [ { name: "Reading", sel: "reading", n: 5 }, { name: "Mathematical Reasoning", sel: "mathreason", n: 5 }, { name: "Thinking Skills", sel: "thinking", n: 5 } ] },
+  { id: "sel-thinking", name: "Selective — Thinking Skills Paper", glyph: "🧩", tag: "NSW Selective", minsEach: 60,
+    blurb: "10 logic & reasoning questions, exam-paced.",
+    sections: [ { name: "Thinking Skills", subject: "thinking", n: 10 } ] },
+  { id: "sel-reading", name: "Selective — Reading Paper", glyph: "📖", tag: "NSW Selective", minsEach: 60,
+    blurb: "8 reading-comprehension questions.",
+    sections: [ { name: "Reading", subject: "selReading", n: 8 } ] },
+  { id: "naplan-num", name: "NAPLAN-style — Numeracy Paper", glyph: "🔢", tag: "NAPLAN", minsEach: 60,
+    blurb: "10 numeracy questions across your year level.",
+    sections: [ { name: "Numeracy", subject: "maths", n: 10 } ] },
+  { id: "naplan-read", name: "NAPLAN-style — Reading Paper", glyph: "📚", tag: "NAPLAN", minsEach: 75,
+    blurb: "8 reading questions — find, infer, interpret.",
+    sections: [ { name: "Reading", subject: "selReading", n: 8 } ] },
+  { id: "naplan-lang", name: "NAPLAN-style — Language Conventions", glyph: "✏️", tag: "NAPLAN", minsEach: 45,
+    blurb: "10 spelling, grammar & punctuation questions.",
+    sections: [ { name: "Language Conventions", subject: "english", n: 10 } ] },
+];
+/* Official free past-paper sources (real papers live here, not in the app — claims discipline). */
+const OFFICIAL_PAPERS = [
+  { name: "NAPLAN public example questions (ACARA)", url: "https://www.nap.edu.au/naplan/public-demonstration-site" },
+  { name: "NSW Selective High School — official info & sample test", url: "https://education.nsw.gov.au/schooling/parents-and-carers/selective-high-schools-and-opportunity-classes" },
+];
+function paperById(id) { return PAPERS.find(p => p.id === id); }
+
 /* Continuity greeting lines */
 const GREETINGS = {
   returning: (name, summary) => pick([`Welcome back, ${name}! ⭐ ${summary}`, `${name}! Good to see you. ${summary}`, `Hey ${name} 🌟 ${summary}`]),
@@ -1738,9 +1843,34 @@ function useTurn(childId) {
 }
 function tier() { return CONFIG.tiers[S.family?.plan || "free"]; }
 function subjectAllowed(childId, subjectId) {
-  if (tier().subjects === "all") return true;
+  // Pilot / offline engine serves at ~$0, so every subject is open to explore (DECISIONS #30).
+  // The tier gate is kept for a future remote/paid config but never locks the local pilot.
+  if (S.settings.engine === "local" || tier().subjects === "all") return true;
   const free = S.freeSubject[childId];
   return !free || free === subjectId;
+}
+/* ---------- 💎 Gems: earned by learning, spent on cosmetics. Earn-only, never lost. ---------- */
+function gemsOf(childId) { S.gems = S.gems || {}; return S.gems[childId] || 0; }
+function addGems(childId, n) {
+  if (!n) return;
+  S.gems = S.gems || {}; S.gems[childId] = (S.gems[childId] || 0) + n; save();
+  const chip = document.getElementById("gemchip");
+  if (chip) { chip.textContent = `💎 ${S.gems[childId]}`; chip.classList.remove("pop"); void chip.offsetWidth; chip.classList.add("pop"); }
+}
+function ownedList(childId, kind) { S.owned = S.owned || {}; const o = S.owned[childId] = S.owned[childId] || { themes: ["midnight"], stickers: ["none"], buddies: [] }; return o[kind] || (o[kind] = []); }
+function ownsItem(childId, kind, id) { return ownedList(childId, kind).includes(id); }
+/* Apply a child's equipped theme (CSS variables) + return their avatar with any equipped sticker. */
+function applyTheme(child) {
+  const root = document.documentElement;
+  const themeId = (child && child.theme) || "midnight";
+  const t = shopItem("themes", themeId) || SHOP.themes[0];
+  // clear any previously-set theme vars, then apply
+  ["--bg", "--bg-2", "--card", "--card-2", "--spark", "--spark-2", "--good", "--accent", "--accent-2"].forEach(v => root.style.removeProperty(v));
+  Object.entries(t.vars || {}).forEach(([k, v]) => root.style.setProperty(k, v));
+}
+function avatarWithSticker(child) {
+  const st = child && child.sticker && shopItem("stickers", child.sticker);
+  return (child ? child.avatar : "⭐") + (st && st.emoji ? `<span class="sticker">${st.emoji}</span>` : "");
 }
 function dueReviews(childId) { return S.review.filter(r => r.childId === childId && r.due <= Date.now()); }
 
@@ -2001,6 +2131,7 @@ function screenHome(childId) {
   const c = S.children.find(x => x.id === childId);
   if (!c) return screenProfiles();
   document.documentElement.classList.toggle("young", !!c.young);
+  applyTheme(c);
   const sums = S.summaries[childId] || [];
   const last = sums[0];
   const greet = last
@@ -2013,10 +2144,11 @@ function screenHome(childId) {
   const lastLv = lastSub ? (S.levels[childId] || {})[lastSub.id] : null;
   render(`
     <div class="topbar">
-      <button class="ghost small" onclick="screenProfiles()">${c.avatar} ${esc(c.nickname)} ▾</button>
+      <button class="ghost small" onclick="screenProfiles()">${avatarWithSticker(c)} ${esc(c.nickname)} ▾</button>
       <span class="row">
         ${wk.days > 1 ? `<span class="chip">🔥 ${wk.days} days this week</span>` : ""}
         <span class="chip xp">⭐ ${Object.values(S.levels[childId]||{}).reduce((t,l)=>t+l.xp,0)} XP</span>
+        <span class="chip gem" id="gemchip" onclick="screenShop('${childId}')" style="cursor:pointer">💎 ${gemsOf(childId)}</span>
       </span>
     </div>
     <div class="card" style="padding:16px 20px"><p>${esc(greet)}</p></div>
@@ -2052,10 +2184,14 @@ function screenHome(childId) {
       <small class="dim">Grow your talking &amp; explaining skills — describe, explain, big topics &amp; tongue twisters.</small></div><span style="font-size:1.6em">→</span></div>
     </div>
     <div class="grid2">
-      <div class="card" style="cursor:pointer;margin:14px 0 0" onclick="startPaperSolve('${childId}')">
+      <div class="card tile-pop" style="cursor:pointer;margin:14px 0 0;border-color:var(--spark)" onclick="screenPapers('${childId}')">
+        <div><b>📄 Practice papers</b><br><small class="dim">Sit a full NAPLAN or Selective-style paper — timed, original, unlimited.</small></div></div>
+      ${exams.length ? `<div class="card tile-pop" style="cursor:pointer;margin:14px 0 0" onclick="screenExamPrep('${childId}')">
+        <div><b>🎯 Exam prep</b><br><small class="dim">${exams.map(e=>e.name).slice(0,2).join(", ")}${exams.length>2?" +more":""} · practise by section</small></div></div>` : ""}
+      <div class="card tile-pop" style="cursor:pointer;margin:14px 0 0" onclick="startPaperSolve('${childId}')">
         <div><b>📝 Homework help</b><br><small class="dim">Stuck on a question? I'll explain it, step by step.</small></div></div>
-      ${exams.length ? `<div class="card" style="cursor:pointer;margin:14px 0 0;border-color:var(--spark)" onclick="screenExamPrep('${childId}')">
-        <div><b>🎯 Exam prep</b><br><small class="dim">${exams.map(e=>e.name).slice(0,2).join(", ")}${exams.length>2?" +more":""} · timed practice</small></div></div>` : ""}
+      <div class="card tile-pop" style="cursor:pointer;margin:14px 0 0;border-color:var(--accent)" onclick="screenShop('${childId}')">
+        <div><b>💎 Spark Shop</b><br><small class="dim">Spend gems you earned on themes, stickers &amp; buddies. You have 💎 ${gemsOf(childId)}.</small></div></div>
     </div>
     <p class="footer-note">SparkIQ nudges you to take breaks — learning sticks best with rest. 🌙</p>`);
 }
@@ -2213,7 +2349,14 @@ function addXp(n) {
   save();
   const chip = document.getElementById("sesxp");
   if (chip) { chip.textContent = `⭐ ${SES.xp} XP`; chip.classList.remove("pop"); void chip.offsetWidth; chip.classList.add("pop"); }
+  // 💎 a gem for every genuinely-correct answer (n === xpCorrect); a floaty reward that adds up.
+  if (n >= CONFIG.xpCorrect) { addGems(SES.childId, GEMS.correct); gemFloat(); }
   updateClassBar();
+}
+function gemFloat() {
+  const host = document.getElementById("msgs"); if (!host) return;
+  const f = document.createElement("div"); f.className = "gemfloat"; f.textContent = "💎 +1";
+  host.appendChild(f); setTimeout(() => f.remove(), 1200);
 }
 /* Class progress: the session is a "class" filling toward classGoalXp, then it loops into a
    fresh "bonus round" so a keen kid keeps going without ever being stopped. */
@@ -2716,40 +2859,60 @@ function finishSelective() {
   setOpts([]); showInput(false);
   setActions([["Another round 🏆", () => startSelectiveSession(cid, sec)], ["Sections 📋", () => { endSessionSilently(); screenSelective(cid); }]]);
 }
-/* ---------- Full Selective MOCK PAPER: all four areas in one timed sitting, drawing the
-   real Selective content (Reading + Mathematical Reasoning + Thinking Skills, then Writing).
-   One shot per question, exam-paced; misses bank to spaced review, worked solution shown. ---------- */
-function startSelectiveMock(childId) {
+/* ---------- PRACTICE PAPERS hub + a generic paper runner. A "paper" is a timed, multi-
+   section original set (NAPLAN- or Selective-style). One shot per question, exam-paced;
+   every miss banks to spaced review AND re-teaches the concept. ---------- */
+function screenPapers(childId) {
   const c = S.children.find(x => x.id === childId);
   if (!c) return screenProfiles();
+  applyTheme(c);
+  const cards = PAPERS.map(p => `<div class="card tile-pop">
+    <div class="row spread"><div><b>${p.glyph} ${p.name}</b> <span class="tag">${p.tag}</span><div class="dim"><small>${p.blurb}</small></div></div>
+    <button class="spark small" onclick="startPaper('${childId}','${p.id}')">Sit paper</button></div></div>`).join("");
+  render(`
+    <div class="topbar"><button class="ghost small" onclick="screenHome('${childId}')">← Home</button>
+      <span class="chip">📄 Practice papers</span></div>
+    <div class="card"><h2>📄 Practice papers</h2>
+      <p class="dim">Sit a full, timed, <b>original</b> exam-style paper. Every paper is freshly generated, so you can do them again and again and never get the same one. Wrong answers are explained and saved to your review so they stick.
+      <b>These are original practice papers, not real past papers.</b></p></div>
+    ${cards}
+    <div class="card"><h2>📚 Official past papers (free)</h2>
+      <p class="dim">Real past/sample papers are published by the exam authorities — open these with a parent for the genuine article:</p>
+      <div class="row" style="flex-direction:column;gap:8px;align-items:stretch">
+      ${OFFICIAL_PAPERS.map(o => `<a class="card" style="text-decoration:none" href="${o.url}" target="_blank" rel="noopener"><b>🔗 ${o.name}</b> <small class="dim">↗ opens the official site</small></a>`).join("")}</div>
+      <p class="dim" style="margin-top:8px"><small>SparkIQ can't promise an exam result — it builds familiarity and practice.</small></p></div>`);
+}
+function startPaper(childId, paperId) {
+  const c = S.children.find(x => x.id === childId);
+  if (!c) return screenProfiles();
+  const paper = paperById(paperId); if (!paper) return screenPapers(childId);
   SES = examSessionShell(childId, c, "selmock");
   SES.band = Math.max(1, bandOf(c.year));
-  SES.mock = {
-    plan: [
-      { id: "reading", name: "Reading", n: 5 },
-      { id: "mathreason", name: "Mathematical Reasoning", n: 5 },
-      { id: "thinking", name: "Thinking Skills", n: 5 },
-    ],
-    si: 0, qi: 0, scores: [{ c: 0, n: 0 }, { c: 0, n: 0 }, { c: 0, n: 0 }], writing: true,
-  };
-  renderSessionShell(c, "🏆 Selective mock paper");
-  say(`🏆 Full Selective mock paper — four areas in one sitting, about ${CONFIG.examSecondsPerQ}s a question. It's a marathon, not a sprint: if one's tricky, bank a guess and move on so you don't lose time. First area: Reading. Ready… ⏱`,
+  SES.mock = { paper, plan: paper.sections, si: 0, qi: 0, scores: paper.sections.map(() => ({ c: 0, n: 0 })), writing: !!paper.writing };
+  renderSessionShell(c, paper.glyph + " " + paper.name);
+  const first = paper.sections[0];
+  say(`${paper.glyph} ${paper.name} — about ${CONFIG.examSecondsPerQ}s a question. It's a marathon, not a sprint: if one's tricky, bank a guess and keep moving. First up: ${first.name}. Ready… ⏱`,
     "Original, exam-style — not a real past paper. Check official sources for the current format.");
   setTimeout(nextMock, 1000);
+}
+function startSelectiveMock(childId) { startPaper(childId, "sel-full"); } // Selective screen shortcut
+function paperQuestion(sec) {
+  return sec.sel ? Engine.selectiveQuestion(sec.sel, SES.band, { avoid: SES.recentQs })
+                 : Engine.question(sec.subject, SES.band, { avoid: SES.recentQs });
 }
 function nextMock() {
   stopExamClock();
   const m = SES.mock;
   const sec = m.plan[m.si];
-  if (m.qi >= sec.n) { // current section complete → advance
+  if (m.qi >= sec.n) { // section complete → advance
     m.si++; m.qi = 0;
-    if (m.si >= m.plan.length) return m.writing ? finishMock() : finishMock();
+    if (m.si >= m.plan.length) return finishMock();
     const ns = m.plan[m.si];
     say(`✅ ${sec.name}: ${m.scores[m.si - 1].c}/${sec.n}. Next area — ${ns.name}. Keep the pace up! ⏱`);
     setTimeout(nextMock, 1400); return;
   }
   m.qi++;
-  presentItem(Engine.selectiveQuestion(sec.id, SES.band, { avoid: SES.recentQs }));
+  presentItem(paperQuestion(sec));
 }
 function recordMock(correct) {
   if (SES.answered) return;
@@ -2757,20 +2920,80 @@ function recordMock(correct) {
   bumpStat(SES.item.skillId, correct);
   const sc = SES.mock.scores[SES.mock.si]; sc.n++; if (correct) sc.c++;
   if (correct) { say(GREETINGS.celebrate()); addXp(CONFIG.xpCorrect); }
-  else { queueReview(SES.item); addXp(CONFIG.xpAttempt); say(`Not quite — it's saved to your review so we lock it in later. Here's the way to crack it:\n\n${SES.item.worked}`); }
+  else {
+    queueReview(SES.item); addXp(CONFIG.xpAttempt);
+    // Concept help on a miss: show the way to solve it AND (if we have one) re-teach the idea.
+    const teach = TEACH[SES.item.skillId];
+    say(`Not quite — no stress, it's saved to your review so we lock it in later. Here's how to crack it:\n\n${SES.item.worked}${teach ? `\n\n💡 The idea behind it: ${teach}` : ""}`);
+  }
   const m = classMilestone();
-  setTimeout(nextMock, correct ? (m ? 1300 : 900) : 1900);
+  setTimeout(nextMock, correct ? (m ? 1300 : 900) : 2200);
 }
 function finishMock() {
   stopExamClock();
   const m = SES.mock, cid = SES.childId;
   const total = m.scores.reduce((t, s) => t + s.c, 0), tot = m.scores.reduce((t, s) => t + s.n, 0);
   const pct = tot ? Math.round(total / tot * 100) : 0;
-  if (pct >= 70) { confetti(); awardBadge(cid, "Mock Paper Finisher"); }
-  const lines = m.plan.map((p, i) => `• ${p.name}: ${m.scores[i].c}/${m.scores[i].n}`).join("\n");
-  say(`🏁 Mock paper done — you sat a full multi-section paper!\n\n${lines}\n\nOverall: ${total}/${tot} (${pct}%). ${pct >= 70 ? "That's strong, Selective-ready thinking." : "Finishing a whole paper takes real stamina — the ones you missed are in your review queue to lock in."}\nConsistency across weeks beats any single score, and I can't promise a result — but sitting full papers makes the real day feel familiar. Last area: Writing ✍️`);
+  if (pct >= 70) { confetti(); awardBadge(cid, "Paper Finisher"); }
+  addGems(cid, GEMS.paperFinish); // 💎 reward for finishing a whole paper
+  const lines = m.plan.length > 1 ? m.plan.map((p, i) => `• ${p.name}: ${m.scores[i].c}/${m.scores[i].n}`).join("\n") + "\n\n" : "";
+  say(`🏁 Paper done — you sat a full timed paper! 💎 +${GEMS.paperFinish} gems\n\n${lines}Overall: ${total}/${tot} (${pct}%). ${pct >= 70 ? "That's strong, exam-ready thinking." : "Finishing a whole paper takes real stamina — the ones you missed are in your review queue to lock in."}\nConsistency across weeks beats any single score, and I can't promise a result — but sitting full papers makes the real day feel familiar.${m.writing ? " Last area: Writing ✍️" : ""}`);
   setOpts([]); showInput(false);
-  setActions([["✍️ Do the Writing section", () => startWritingSession(cid)], ["🏆 Back to sections", () => { endSessionSilently(); screenSelective(cid); }]]);
+  const acts = [];
+  if (m.writing) acts.push(["✍️ Do the Writing section", () => startWritingSession(cid)]);
+  acts.push(["📄 More papers", () => { endSessionSilently(); screenPapers(cid); }]);
+  acts.push(["🏠 Home", () => { endSessionSilently(); screenHome(cid); }]);
+  setActions(acts);
+}
+/* ---------- 💎 SPARK SHOP: spend earned gems on themes, stickers & buddies. ---------- */
+function screenShop(childId) {
+  const c = S.children.find(x => x.id === childId);
+  if (!c) return screenProfiles();
+  applyTheme(c);
+  const g = gemsOf(childId);
+  const themeCards = SHOP.themes.map(t => shopCard(childId, "themes", t, c.theme === t.id || (!c.theme && t.id === "midnight"))).join("");
+  const stickerCards = SHOP.stickers.map(t => shopCard(childId, "stickers", t, (c.sticker || "none") === t.id)).join("");
+  const buddyCards = SHOP.buddies.map(t => shopCard(childId, "buddies", t, c.persona === t.id)).join("");
+  render(`
+    <div class="topbar"><button class="ghost small" onclick="screenHome('${childId}')">← Home</button>
+      <span class="chip gem">💎 ${g}</span></div>
+    <div class="card"><h2>💎 Spark Shop</h2>
+      <p class="dim">You earn gems by <b>learning</b> — a gem for every question you get right, and a bundle for finishing papers. Spend them here to make SparkIQ yours. Gems are just for fun: they never cost money and you never lose them. You have <b>💎 ${g}</b>.</p></div>
+    <div class="card"><h3>🎨 Themes</h3><div class="shop-grid">${themeCards}</div></div>
+    <div class="card"><h3>✨ Avatar stickers</h3><div class="shop-grid">${stickerCards}</div></div>
+    <div class="card"><h3>🧸 Extra buddies</h3><div class="shop-grid">${buddyCards}</div></div>`);
+}
+function shopCard(childId, kind, item, equipped) {
+  const owned = kind === "buddies" ? (item.cost === 0 || ownsItem(childId, "buddies", item.id) || PERSONAS.some(p => p.id === item.id)) : (item.cost === 0 || ownsItem(childId, kind, item.id));
+  const g = gemsOf(childId);
+  const preview = kind === "themes"
+    ? `<span class="swatch" style="background:${item.vars["--spark"] || "#ffd166"}"></span><span class="swatch" style="background:${item.vars["--accent"] || "#8f9bff"}"></span><span class="swatch" style="background:${item.vars["--bg-2"] || "#141a3a"}"></span>`
+    : `<span class="shop-emoji">${item.emoji || "🚫"}</span>`;
+  let btn;
+  if (equipped) btn = `<button class="small" disabled>✓ On</button>`;
+  else if (owned) btn = `<button class="small primary" onclick="equipItem('${childId}','${kind}','${item.id}')">Wear</button>`;
+  else if (g >= item.cost) btn = `<button class="small spark" onclick="buyItem('${childId}','${kind}','${item.id}')">💎 ${item.cost}</button>`;
+  else btn = `<button class="small" disabled>💎 ${item.cost}</button>`;
+  return `<div class="shop-item ${equipped ? "equipped" : ""}">
+    <div class="shop-prev">${preview}</div>
+    <div class="shop-name">${item.name}${item.blurb ? `<br><small class="dim">${item.blurb}</small>` : ""}</div>
+    ${btn}</div>`;
+}
+function buyItem(childId, kind, id) {
+  const c = S.children.find(x => x.id === childId); const item = shopItem(kind, id);
+  if (!c || !item) return;
+  if (gemsOf(childId) < item.cost) return;
+  S.gems[childId] -= item.cost;
+  ownedList(childId, kind).push(id);
+  save(); confetti();
+  equipItem(childId, kind, id);
+}
+function equipItem(childId, kind, id) {
+  const c = S.children.find(x => x.id === childId); if (!c) return;
+  if (kind === "themes") c.theme = id;
+  else if (kind === "stickers") c.sticker = id;
+  else if (kind === "buddies") c.persona = id;
+  save(); applyTheme(c); screenShop(childId);
 }
 function startWritingSession(childId) {
   const c = S.children.find(x => x.id === childId);
@@ -2792,6 +3015,7 @@ function examSessionShell(childId, c, mode) {
   return shell;
 }
 function renderSessionShell(c, label) {
+  applyTheme(c);
   render(`
     <div class="topbar">
       <button class="ghost small" onclick="endSession()">← Done</button>

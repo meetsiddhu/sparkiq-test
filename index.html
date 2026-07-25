@@ -1783,15 +1783,15 @@ function paperById(id) { return PAPERS.find(p => p.id === id); }
    ============================================================ */
 const COACHES = [
   { id: "teacher", name: "Ms Ada", emoji: "👩‍🏫", color: "#ffd166", role: "Master Teacher",
-    tag: "Concepts that click",
+    tag: "Concepts that click", pitch: 1.05, rate: 1.0,
     intro: "I teach the BIG IDEA first — with a picture in your head and a real-life example — so things actually make sense instead of just being memorised. Understand the why, and the how is easy.",
     cta: "Teach me a concept" },
   { id: "comms", name: "Coach Rio", emoji: "🎤", color: "#8f9bff", role: "Communication Coach",
-    tag: "Say it clearly & boldly",
+    tag: "Say it clearly & boldly", pitch: 1.12, rate: 1.06,
     intro: "The best way to truly KNOW something is to explain it out loud. I'll help you turn your ideas into clear, confident words — the superpower behind every great presentation, debate and interview.",
     cta: "Practise explaining" },
   { id: "mind", name: "Coach Sky", emoji: "🧠", color: "#7ce38b", role: "Mind Coach",
-    tag: "Learn how to learn",
+    tag: "Learn how to learn", pitch: 1.22, rate: 0.9,
     intro: "I coach the hidden skills behind learning — a growth mindset, beating the wobbles before a test, and how your brain actually makes memories stick. Mistakes aren't failures; they're your brain growing!",
     safety: "I help with learning and confidence. If something bigger is worrying you, the bravest move is telling a trusted grown-up — and Kids Helpline is always there on 1800 55 1800.",
     cta: "Train my brain" },
@@ -2333,14 +2333,14 @@ function startSession(childId, subject, forceMode) {
   else beginLearn();
 }
 
-function say(text, mini) {
+function say(text, mini, voice) {
   const m = document.getElementById("msgs"); if (!m) return;
   const d = document.createElement("div");
   d.className = "msg spark-msg";
   d.textContent = text;
   if (mini) { const s = document.createElement("small"); s.className = "mini"; s.textContent = mini; d.appendChild(s); }
   m.appendChild(d); d.scrollIntoView({ behavior: "smooth", block: "end" });
-  if (SES && SES.child && SES.child.readAloud) TTS.speak(text, personaFor(SES.child));
+  if (SES && SES.child && SES.child.readAloud) TTS.speak(text, voice || SES.speaker || personaFor(SES.child));
 }
 function personaFor(child) { return personaById(child && child.persona); }
 /* Talking avatar + read-aloud toggle for a session header. */
@@ -2534,7 +2534,7 @@ function presentItem(item, isRepeat) {
         // Master Teacher presents the concept intuition-first, and every concept lands with a
         // real-world example so it sticks (the ask: "explain concepts with real-world examples").
         const rw = item.real ? `\n\n🌏 Real life: ${item.real}` : "";
-        say(TEACH[key] + rw, "👩‍🏫 Ms Ada, your teacher — the big idea first");
+        say(TEACH[key] + rw, "👩‍🏫 Ms Ada, your teacher — the big idea first", coachById("teacher"));
       }
     }
   }
@@ -3334,6 +3334,7 @@ function startMindCoach(childId) {
   if (!c) return screenProfiles();
   SES = examSessionShell(childId, c, "mind");
   SES.mindSeen = [];
+  SES.speaker = coachById("mind"); // Coach Sky's calm voice for every line this session
   renderSessionShell(c, "🧠 Coach Sky");
   say(`🧠 Hi ${esc(c.nickname)}, I'm Coach Sky — your Mind Coach. I train the hidden skills that make learning easier and less stressful. Ready for a quick brain-boost?`,
     "Learning & confidence coaching — big worries go to a trusted grown-up (Kids Helpline 1800 55 1800)");

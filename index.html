@@ -608,7 +608,9 @@ const MATH_SKILLS = [
       const a = ri(2, 6), n = ri(2, 4); const coef = a * n, pow = n - 1;
       const ansStr = pow === 1 ? `${coef}x` : `${coef}x^${pow}`; // standard notation (6x, not 6x^1)
       const norm = s => normAns(s).replace(/\s|\*/g, "").replace(/x\^1$/, "x");
-      return { q: `Differentiate y = ${a}x^${n}. Give dy/dx like ${ansStr}.`, answer: ansStr, check: v => norm(v) === ansStr,
+      // NOTE: the format example "3x^2" is illustrative only — it can never equal this answer
+      // (coefficient a·n ≥ 4), so it doesn't leak the answer the way printing ansStr would.
+      return { q: `Differentiate y = ${a}x^${n}. Write dy/dx using ^ for the power (like "3x^2").`, answer: ansStr, check: v => norm(v) === ansStr,
         hints: [`Power rule: bring the power down, reduce power by 1.`, `${n}×${a} = ${n*a} out front; new power ${pow}.`],
         worked: `dy/dx = ${ansStr}.`,
         real: `Speed is the derivative of position — your speedo does calculus.`, trick: `Power JUMPS to the front, then STEPS back by one.` };
@@ -645,7 +647,7 @@ const MATH_SKILLS = [
       const h1 = ri(1, 10), m1 = pick([0,15,30,45]), add = pick([30,45,60,75,90]);
       const start = h1*60+m1, end = start+add; const eh = Math.floor(end/60)%12 || 12, em = end%60;
       const fmt = (h,m)=>`${h}:${String(m).padStart(2,"0")}`;
-      return { q: `A movie starts at ${fmt(h1,m1)} and runs ${add} minutes. What time does it finish? (like ${fmt(eh,em)})`, answer: fmt(eh,em), check: v => normAns(v).replace(/\s/g,"") === fmt(eh,em),
+      return { q: `A movie starts at ${fmt(h1,m1)} and runs ${add} minutes. What time does it finish? (write it like 2:05)`, answer: fmt(eh,em), check: v => normAns(v).replace(/\s/g,"") === fmt(eh,em),
         hints: [`Add the minutes on; remember 60 minutes = 1 hour.`, `${add} minutes = ${Math.floor(add/60)}h ${add%60}m.`],
         worked: `${fmt(h1,m1)} + ${add} min = ${fmt(eh,em)}.`,
         real: `Working out finish times is everyday planning maths.`, trick: `Jump to the next hour first, then add the leftover minutes.` };
@@ -1004,7 +1006,7 @@ const _HOMO = [
   { s: "I want to come ___!", opts: ["to", "too", "two"], a: 1, why: `"Too" means "also".` },
   { s: "___ the best speller in class.", opts: ["Your", "You're"], a: 1, why: `"You're" = "you are".` },
   { s: "I like ___ new haircut.", opts: ["your", "you're"], a: 0, why: `"Your" shows belonging.` },
-  { s: "We could hear the wind ___ all night.", opts: ["blew", "blue"], a: 0, why: `"Blew" is the past tense of blow.` },
+  { s: "The strong wind ___ my hat right off.", opts: ["blew", "blue"], a: 0, why: `"Blew" is the past tense of blow; "blue" is a colour.` },
   { s: "The ___ rang loudly at the school gate.", opts: ["bell", "belle"], a: 0, why: `"Bell" is the object that rings.` },
 ];
 const _PLURAL = [
@@ -3774,7 +3776,7 @@ function toggleCxType() {
 function addCustomExercise() {
   const q = _cxv("cx-q").trim();
   if (!q) { alert("Please type a question."); return; }
-  const rec = { id: uuid(), subject: _cxv("cx-subject"), band: _cxv("cx-band") === "" ? null : Number(_cxv("cx-band")), q };
+  const rec = { id: uuid(), childId: _cxv("cx-child") || null, subject: _cxv("cx-subject"), band: _cxv("cx-band") === "" ? null : Number(_cxv("cx-band")), q };
   if (_cxv("cx-type") === "mc") {
     const raw = [0, 1, 2, 3].map(i => _cxv("cx-opt" + i).trim());
     const opts = raw.filter(Boolean);
@@ -3810,7 +3812,7 @@ function customToItem(rec) {
 }
 function customFor(childId) {
   const c = S.children.find(x => x.id === childId); if (!c) return [];
-  return (S.custom || []).filter(x => subjectAllowed(childId, x.subject));
+  return (S.custom || []).filter(x => subjectAllowed(childId, x.subject) && (!x.childId || x.childId === childId));
 }
 function startCustomSession(childId) {
   const c = S.children.find(x => x.id === childId); if (!c) return screenProfiles();
@@ -4490,14 +4492,17 @@ function parentTab(tab) {
     const rows = list.length ? list.map(x => {
       const sub = SUBJECTS.find(s => s.id === x.subject);
       const ans = x.opts && x.opts.length ? x.opts[x.a] : x.a;
+      const who = x.childId ? (S.children.find(c => c.id === x.childId) || {}).nickname || "?" : "all children";
       return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)">
         <div class="row spread"><div><b>${sub ? sub.glyph : "📓"} ${esc(x.q)}</b>
-          <div class="dim"><small>${sub ? sub.name : x.subject}${x.band != null ? " · " + BAND_NAMES[x.band] : " · all years"} · answer: ${esc(String(ans))}</small></div></div>
+          <div class="dim"><small>👤 ${esc(who)} · ${sub ? sub.name : x.subject}${x.band != null ? " · " + BAND_NAMES[x.band] : ""} · answer: ${esc(String(ans))}</small></div></div>
           <button class="small danger" onclick="deleteCustom('${x.id}')">Delete</button></div></div>`;
     }).join("") : `<p class="dim">No custom exercises yet. Add one below — it appears for your child under "📓 Teacher's exercises".</p>`;
     return `<div class="card"><h2>📓 Teacher / tutor tools</h2>
       <p class="dim">Add your OWN exercises for your child — perfect for a tutor or teacher setting specific practice. They appear for the child as "Teacher's exercises", marked, hinted and explained like the built-in ones. Stored on this device only.</p></div>
       <div class="card"><h3>Add an exercise</h3>
+        <label>For which child</label>
+        <select id="cx-child"><option value="">All my children</option>${S.children.map(c => `<option value="${c.id}">${esc(c.nickname)} (Year ${c.year})</option>`).join("")}</select>
         <label>Subject</label>
         <select id="cx-subject">${subs.map(s => `<option value="${s.id}">${s.glyph} ${s.name}</option>`).join("")}</select>
         <label>Year level</label>

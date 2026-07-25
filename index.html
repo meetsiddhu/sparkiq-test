@@ -316,6 +316,13 @@ ul.clean { list-style: none; } ul.clean li { padding: 6px 0; border-bottom: 1px 
 :root.focus .cf { display: none; } /* calmer celebration for older kids */
 :root.focus .avatar { animation: none; }
 
+/* ---------- Emotive avatar reactions (show, don't tell) ---------- */
+@keyframes avcele { 0% { transform: scale(1); } 30% { transform: scale(1.28) rotate(-7deg); } 60% { transform: scale(1.12) rotate(7deg); } 100% { transform: scale(1); } }
+@keyframes avoops { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-5px) rotate(-5deg); } 40% { transform: translateX(5px) rotate(5deg); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+.avatar.celebrate { animation: avcele .6s ease !important; }
+.avatar.oops { animation: avoops .5s ease !important; }
+.reading-passage { white-space: pre-wrap; }
+
 </style>
 </head>
 <body>
@@ -347,6 +354,7 @@ const CONFIG = {
   breakNudgeMinutesYoung: 20,
   milestoneEvery: 5,          // celebrate every N correct answers within a class
   maxMsgLen: 400,
+  writingMaxLen: 3000,        // writing mode needs room for a real 250–400 word piece
   minMsgIntervalMs: 2000,
   reviewIntervalsDays: [1, 3, 7, 16, 30],
   diagnosticQuestions: 5,
@@ -851,6 +859,100 @@ const SELECTIVE_MATH_GENS = [
     return { skillName:"Geometry reasoning", q:`A rectangle is twice as long as it is wide. Its width is ${w} cm. What is its perimeter?`, answer:String(peri), check:v=>numEq(v,peri),
       hints:[`Find the length first.`, `Length = 2×${w} = ${l}. Perimeter = 2×(l+w).`], worked:`l=${l}, w=${w}; perimeter = 2×(${l}+${w}) = ${peri} cm.`,
       real:`Multi-step geometry: translate words → dimensions → formula.`, trick:`Turn the words into a labelled sketch before calculating.` }; }},
+];
+
+/* ============================================================
+   READING PASSAGES — original, longer comprehension texts (the real Selective/NAPLAN skill:
+   sustained reading of a 150–250 word passage with linked questions). Never real past papers.
+   ============================================================ */
+const PASSAGES = [
+  { band: 1, title: "The Lighthouse Keeper's Cat", genre: "narrative",
+    text: `Every evening, Mila climbed the ninety-seven steps to the top of the lighthouse with her ginger cat, Biscuit, padding just ahead. Her grandfather had kept the light burning for forty years, and now the job was hers for the summer.\n\nOn the night of the big storm, the wind screamed and the sea threw itself against the rocks. Biscuit would not settle. He paced the glass room, meowing at the black water below. Mila peered out but saw only rain.\n\nThen Biscuit leapt onto the sill and yowled loudly, staring at one spot. Mila grabbed the binoculars. Far out, a tiny fishing boat was tossing helplessly, its own light dead.\n\nMila swung the great lamp so its beam swept across the waves, again and again, guiding the boat toward the safe channel. By midnight the fishermen were ashore, soaked and shaking but alive.\n\n"How did you know?" Mila whispered, scratching Biscuit behind the ears. The cat only purred, as though guiding lost sailors were the most ordinary thing in the world.`,
+    questions: [
+      { skill: "Main idea", q: "What is this passage mostly about?", opts: ["A cat and a girl help save fishermen during a storm", "How to climb a lighthouse safely", "Why cats dislike rain", "A grandfather teaching his granddaughter to fish"], a: 0,
+        hints: ["Think about the most important event, not a small detail.", "What problem is solved by the end of the story?"],
+        worked: "The main idea is the big picture. Most of the passage builds toward Biscuit spotting the boat and Mila using the lamp to guide it in. The other choices are small details or things that never happen, so option A captures what the whole story is about." },
+      { skill: "Inference", q: "Why did Biscuit keep pacing and yowling before Mila saw the boat?", opts: ["He was hungry for his dinner", "He had sensed the boat in trouble before Mila noticed it", "He was frightened of the ninety-seven steps", "He wanted to go outside into the rain"], a: 1,
+        hints: ["The passage does not say directly, so look for clues.", "What did Biscuit stare at, and what did Mila find when she looked there?"],
+        worked: "An inference is a smart guess based on clues. Biscuit yowled and stared at one spot, and that is exactly where Mila found the struggling boat. The best explanation is that he sensed the danger first, making option B the answer the clues point to." },
+      { skill: "Vocabulary in context", q: "In the sentence 'the sea threw itself against the rocks,' the word 'threw' suggests the sea was...", opts: ["gentle and calm", "warm and shallow", "wild and forceful", "frozen and still"], a: 2,
+        hints: ["Read the whole stormy sentence around the word.", "Would a calm sea 'throw itself' at anything?"],
+        worked: "Vocabulary in context means using nearby words to find meaning. The sea is described during a storm with screaming wind, and 'threw itself' is a violent action. That tells us the sea was wild and forceful, so option C fits the picture the author paints." }
+    ] },
+  { band: 1, title: "How Honey Bees Talk", genre: "non-fiction",
+    text: `Honey bees cannot speak, but they can still tell each other exactly where to find flowers. They do it by dancing.\n\nWhen a bee discovers a rich patch of blossoms, she flies back to the hive and performs a special movement called the waggle dance. She runs in a straight line while shaking her body quickly from side to side, then loops around and repeats the pattern.\n\nThe direction of that straight run is the clue. It points the other bees toward the flowers, using the position of the sun as a guide. The length of the waggle tells them how far to travel. A longer waggle means a longer journey.\n\nOther bees crowd around the dancer, feeling the movements and picking up the scent of the flowers she visited. Soon they fly off in the right direction, and the whole hive shares the meal.\n\nScientists studied this dance for many years before they understood it. Today it is seen as one of the most remarkable ways any animal shares information without words.`,
+    questions: [
+      { skill: "Sequence", q: "According to the passage, what does a bee do first after finding flowers?", opts: ["She feels the movements of other dancers", "She flies back to the hive and dances", "She waits for the sun to move", "She collects scent from the other bees"], a: 1,
+        hints: ["Look for the order of events in the text.", "What happens right after she 'discovers a rich patch of blossoms'?"],
+        worked: "Sequence questions ask about order. The passage says that when a bee finds flowers, she 'flies back to the hive and performs' the dance. That is her first action, so option B is correct. The other choices happen later or to different bees." },
+      { skill: "Main idea", q: "What is the best title for this passage besides the one given?", opts: ["Why Bees Sting People", "The Colours of Flowers", "How Bees Share Directions Without Words", "The Life of a Beekeeper"], a: 2,
+        hints: ["A good title covers the whole passage, not one line.", "What is every paragraph really explaining?"],
+        worked: "The main idea should match the whole text. Every paragraph explains how the waggle dance lets bees tell each other where flowers are. Option C captures that, while the others mention topics the passage never covers." },
+      { skill: "Author's purpose", q: "Why did the author most likely write this passage?", opts: ["To warn readers to stay away from bees", "To persuade readers to become beekeepers", "To tell an exciting made-up story about a bee", "To inform readers about how bees communicate"], a: 3,
+        hints: ["Is the passage telling a story, arguing a point, or giving facts?", "Notice the scientific, fact-based tone throughout."],
+        worked: "Author's purpose is the reason a text was written. This passage gives clear facts about the waggle dance and even mentions scientists studying it, so its purpose is to inform. That makes option D correct; it does not warn, persuade, or tell a fictional story." }
+    ] },
+  { band: 2, title: "The Clockwork Garden", genre: "narrative",
+    text: `Theo inherited the garden from his great-aunt Vivienne along with a single, puzzling instruction: wind the copper key each morning before the shadows shorten.\n\nAt first he thought her a harmless eccentric. The garden looked ordinary enough — roses, a stone path, a small brass box half-buried near the sundial. But on the third morning he overslept, and the change was unmistakable. The roses drooped as though the colour had been drained from them, and the birdsong thinned to an uneasy silence.\n\nHeart thudding, Theo found the copper key, fitted it into the brass box, and turned. Somewhere beneath the soil, gears engaged with a soft, satisfied click. Within minutes the roses lifted their heads, and a blackbird resumed its interrupted song as if nothing had happened.\n\nHe never fully understood the mechanism his great-aunt had built, nor how far its roots reached beneath the lawn. But he learned to trust it. Every morning after that, before the shadows shortened, Theo turned the key — not because he grasped the science, but because he had seen, plainly, what waited on the mornings he forgot.`,
+    questions: [
+      { skill: "Inference", q: "What can the reader infer about why Theo keeps winding the key each morning?", opts: ["He fully understands the machine and enjoys fixing it", "He has seen the harm caused when the garden is not wound, and wants to prevent it", "He is following a rule he thinks is silly and pointless", "He is trying to sell the garden to a buyer"], a: 1,
+        hints: ["The passage states he does not understand the mechanism, so rule out choices about understanding.", "What did he witness on the morning he overslept?"],
+        worked: "Inference means combining clues. The text says Theo does not grasp the science, yet keeps winding the key because of 'what waited on the mornings he forgot' — the wilting garden. He acts to prevent that harm, so option B fits, while the others contradict the passage." },
+      { skill: "Vocabulary in context", q: "In this passage, the word 'eccentric' most nearly means a person who is...", opts: ["cruel and dishonest", "wealthy and famous", "strange or unusual in their behaviour", "young and inexperienced"], a: 2,
+        hints: ["Look at how Theo first judges his great-aunt's odd instruction.", "The word describes someone 'harmless' but odd."],
+        worked: "Context clues carry the meaning. Theo calls his great-aunt 'harmless' but odd because of her strange instruction about winding a key. 'Eccentric' describes someone unusual in behaviour, so option C matches the tone; nothing suggests cruelty, wealth, or youth." },
+      { skill: "Tone", q: "Which word best describes the overall tone of the passage?", opts: ["Mysterious", "Humorous", "Angry", "Cheerful"], a: 0,
+        hints: ["Notice the unexplained machine, the buried gears, and the things Theo never fully understands.", "How does the writing make you feel as you read?"],
+        worked: "Tone is the feeling a text creates. The unexplained gears beneath the soil, the puzzling instruction, and the things Theo cannot understand all create a sense of mystery. Option A captures that mood; the passage is neither funny, angry, nor purely cheerful." },
+      { skill: "Cause & effect", q: "What was the direct effect of Theo oversleeping on the third morning?", opts: ["The brass box vanished", "The roses drooped and the birdsong faded", "His great-aunt returned to the garden", "The copper key stopped working forever"], a: 1,
+        hints: ["Find the sentence describing what happened after he overslept.", "Look for the change in the roses and the birds."],
+        worked: "Cause and effect links an action to its result. Because Theo overslept and failed to wind the key, 'the roses drooped' and 'the birdsong thinned to an uneasy silence.' That is the stated effect, making option B correct." }
+    ] },
+  { band: 2, title: "Bring Back the School Vegetable Patch", genre: "persuasive",
+    text: `Last year our school closed the vegetable patch to make room for extra bicycle racks. I believe this was a mistake, and I am asking the student council to bring the garden back.\n\nFirst, the patch taught us skills no textbook could. Watching a seed we planted grow into a tomato we could actually eat gave lessons in patience and science at the same time. Many students who found classroom biology dull came alive with a trowel in their hands.\n\nSecond, the garden fed people. The vegetables we grew were donated to a local food charity, meaning our small plot helped families beyond the school gates. Bicycle racks help no one but the cyclists.\n\nSome argue there is not enough space for both. Yet the unused corner behind the gymnasium is larger than the old patch ever was, and it currently grows nothing but weeds.\n\nA school should teach us how to care — for plants, for ourselves, and for our community. Reopening the vegetable patch would do exactly that. I urge every student to sign the petition and help us dig in once more.`,
+    questions: [
+      { skill: "Author's purpose", q: "What is the author's main purpose in this passage?", opts: ["To explain how tomatoes grow", "To persuade readers to support reopening the vegetable patch", "To describe a bicycle rack", "To entertain readers with a funny garden story"], a: 1,
+        hints: ["Notice words like 'I urge' and 'I am asking'.", "Is the writer giving neutral facts or trying to convince you?"],
+        worked: "Author's purpose asks why a text was written. The writer repeatedly argues a position and ends by urging readers to sign a petition, which is persuasive. Option B is correct; the passage is not a neutral explanation or a funny story." },
+      { skill: "Fact vs opinion", q: "Which sentence from the passage is an OPINION?", opts: ["The vegetables we grew were donated to a local food charity", "Last year our school closed the vegetable patch", "I believe this was a mistake", "The garden was replaced with bicycle racks"], a: 2,
+        hints: ["A fact can be checked; an opinion shows a personal belief.", "Look for phrases like 'I believe'."],
+        worked: "A fact can be proven true; an opinion states a belief. 'I believe this was a mistake' signals a personal judgement that others might disagree with, so it is an opinion. The other statements describe events that could be verified, making option C correct." },
+      { skill: "Inference", q: "The author mentions the 'unused corner behind the gymnasium' mainly to...", opts: ["complain that the school is untidy", "answer the argument that there is no space for a garden", "suggest building a new gymnasium", "describe where the bicycle racks should go"], a: 1,
+        hints: ["Read the sentence just before it about people saying there is not enough space.", "How does mentioning empty land help the author's case?"],
+        worked: "Inference means reading between the lines to see why a detail is included. The author raises the unused corner right after noting that some say there is 'not enough space,' using it to counter that objection. Option B explains its purpose in the argument." }
+    ] },
+  { band: 3, title: "Tide of Ink", genre: "poetry",
+    text: `The blank page waits, a shoreline pale and wide,\nwhere thought comes creeping, hesitant and slow,\nthen gathers force — a swelling, restless tide\nof words that neither writer fully knows.\n\nEach sentence breaks and foams and slides away,\nleaving faint marks the next wave overwrites;\nwhat seemed profound by the cold light of day\ndissolves to nonsense in the doubtful nights.\n\nYet still I wade. The current tugs my feet.\nI cannot choose which words the sea will keep,\nnor stop the ebb that steals a favourite line\nand drags it, silver, to the hidden deep.\n\nSo let it pull. A poem is not a stone\nbut water, shaped a moment, never owned.`,
+    questions: [
+      { skill: "Technique", q: "The poem repeatedly compares writing to the sea and tides. This sustained comparison is best described as...", opts: ["a simile", "an extended metaphor", "onomatopoeia", "a rhyming couplet"], a: 1,
+        hints: ["The comparison runs through the whole poem, not just one line.", "Note there is no use of 'like' or 'as' in the main comparison."],
+        worked: "Technique questions test poetic devices. The poem compares writing to the sea across every stanza without using 'like' or 'as,' which is an extended metaphor. A simile would use 'like/as' and appear briefly, so option B is correct." },
+      { skill: "Inference", q: "What does the poet suggest about the writing process?", opts: ["It is fully controlled and predictable", "It is uncertain and constantly changing, beyond the writer's full control", "It is a waste of time that should be avoided", "It is only possible near the ocean"], a: 1,
+        hints: ["Consider lines like 'I cannot choose which words the sea will keep'.", "Does the poet feel in charge, or carried along?"],
+        worked: "Inference draws meaning from clues. Lines such as 'I cannot choose which words the sea will keep' and 'never owned' show the poet feels writing is shifting and beyond full control. Option B fits; the poet keeps writing, so it is not a waste, and the sea is a metaphor, not a literal place." },
+      { skill: "Technique", q: "In the final lines, the contrast between a 'stone' and 'water' emphasises that a poem is...", opts: ["heavy and permanent", "fluid and impossible to hold onto forever", "grey and dull in colour", "dangerous to touch"], a: 1,
+        hints: ["Think about how stone and water differ in solidity.", "What do 'shaped a moment' and 'never owned' imply?"],
+        worked: "This tests how contrast creates meaning. Stone is solid and lasting; water is fluid and slips away. By calling a poem 'water … never owned,' the poet stresses that it cannot be fixed or possessed, so option B captures the intended meaning." },
+      { skill: "Vocabulary in context", q: "In the third stanza, the word 'ebb' refers to...", opts: ["a sudden storm", "the outward flow of the tide that pulls things away", "a bright light on the water", "the sound of waves"], a: 1,
+        hints: ["Read the surrounding words: it 'steals a favourite line' and 'drags it … to the hidden deep'.", "An ebb is the opposite of a rising tide."],
+        worked: "Context reveals meaning. The 'ebb' is said to steal a line and drag it to the deep, which describes water flowing outward and away. 'Ebb' names the outgoing tide, so option B fits both the definition and the surrounding clues." }
+    ] },
+  { band: 3, title: "The Forgotten Engineer of the Ancient World", genre: "non-fiction",
+    text: `When we picture ancient inventors, few of us think of Hero of Alexandria, a Greek mathematician who worked in Egypt roughly two thousand years ago. Yet his notebooks describe devices so far ahead of their time that historians still marvel at them.\n\nHero's most famous creation was the aeolipile, a hollow sphere fitted with two bent nozzles. When water inside was heated, steam escaped through the nozzles and spun the sphere rapidly. In principle, this was a working steam engine — centuries before the machines that would later power factories and trains.\n\nWhy, then, did the ancient world not enter an industrial age? Most historians argue that the aeolipile was treated as a curiosity or a temple wonder rather than a source of useful power. With abundant human labour available, there was little pressure to develop the idea into practical machinery.\n\nHero designed much else besides: a coin-operated dispenser for holy water, automatic temple doors, and elaborate mechanical puppets. His genius was real, but it flowered in a society that had little reason to harness it. The lesson, perhaps, is that invention alone is never enough; a discovery must meet a need before it can change the world.`,
+    questions: [
+      { skill: "Main idea", q: "Which statement best expresses the main idea of the passage?", opts: ["Hero of Alexandria built the first factory in Egypt", "Steam engines were invented in the industrial age and never before", "Hero invented advanced devices, but his society had little reason to develop them", "Ancient people preferred puppets to useful machines"], a: 2,
+        hints: ["Look at the final paragraph for the author's overall point.", "The passage explains both his genius and why it went unused."],
+        worked: "The main idea ties the whole passage together. The author shows Hero's remarkable inventions but repeatedly explains why they were never developed, concluding that a discovery 'must meet a need.' Option C captures both halves of that argument, unlike the narrower or inaccurate choices." },
+      { skill: "Cause & effect", q: "According to the passage, why did the ancient world NOT develop Hero's steam device into practical machinery?", opts: ["The device did not actually work", "Plentiful human labour meant there was little pressure to do so", "The Greek government banned new inventions", "Hero refused to share his designs"], a: 1,
+        hints: ["Find the paragraph asking why no industrial age began.", "What does the passage say about available labour?"],
+        worked: "Cause-and-effect questions link reasons to outcomes. The passage states that 'with abundant human labour available, there was little pressure to develop the idea.' That is the stated cause, making option B correct; the device did work, and the other reasons are not mentioned." },
+      { skill: "Author's purpose", q: "The author's final sentence, about invention meeting a need, mainly serves to...", opts: ["prove that Hero was a poor engineer", "draw a broader lesson from Hero's story", "encourage readers to visit Egypt", "list all of Hero's inventions"], a: 1,
+        hints: ["The word 'perhaps' signals the author stepping back to reflect.", "Is the sentence about Hero alone, or about invention in general?"],
+        worked: "Author's purpose can apply to a single sentence. The closing line moves from Hero's specific story to a general principle about invention and need, drawing a wider lesson. Option B describes that move; it does not insult Hero, promote tourism, or list inventions." },
+      { skill: "Fact vs opinion", q: "Which of the following is presented as an OPINION or interpretation rather than a straightforward fact?", opts: ["The aeolipile spun when steam escaped through its nozzles", "Hero worked in Egypt roughly two thousand years ago", "The lesson is that invention alone is never enough", "Hero designed a coin-operated dispenser for holy water"], a: 2,
+        hints: ["Which statement is a judgement the author draws, signalled by 'perhaps'?", "Facts describe what Hero built; interpretations tell us what it means."],
+        worked: "Distinguishing fact from opinion means spotting judgements. The claim that 'invention alone is never enough' is the author's interpretation, softened by 'perhaps,' and others might disagree. The remaining choices state verifiable facts about Hero's work, so option C is the opinion." }
+    ] }
 ];
 
 /* ============================================================
@@ -1420,7 +1522,11 @@ const SPEAK_ACTIVITIES = [
 ];
 function speakActivity(id) { return SPEAK_ACTIVITIES.find(a => a.id === id); }
 
-const FILLERS = /\b(um+|uh+|er+|like|you know|basically|literally|sort of|kind of)\b/gi;
+/* Only genuine non-lexical fillers. "like/basically/literally" are context-dependent (and the
+   app itself teaches "it's like…" as a comparison bridge), so they're NOT flagged. Note: speech-
+   to-text strips "um/uh" from voice transcripts, so filler coaching is only meaningful on TYPED
+   answers — evalSpeech guards for that rather than praising "no ums" on a transcript that can't contain them. */
+const FILLERS = /\b(um+|uh+|erm+|you know)\b/gi;
 
 /* ============================================================
    EXPERT COUNCIL — rationalise kid + parent feedback into a
@@ -1639,6 +1745,15 @@ const Engine = {
     return q;
   },
 
+  /* A full reading passage with linked questions, at (or near) the given band. */
+  readingPassage(band, opts = {}) {
+    let pool = PASSAGES.filter(p => p.band === band);
+    if (opts.avoid) pool = pool.filter(p => !opts.avoid.includes(p.title));
+    if (!pool.length) pool = PASSAGES.filter(p => Math.abs(p.band - band) <= 1);
+    if (!pool.length) pool = PASSAGES;
+    return pick(pool);
+  },
+
   exploreAnswer(text) {
     const t = text.toLowerCase();
     let best = null, bestScore = 0;
@@ -1658,21 +1773,78 @@ const Engine = {
     return { ok: false, fb: `Good start! Can you add the WHY — the key idea that makes it work?` };
   },
 
+  /* Marker-style writing feedback across NAPLAN-aligned criteria: structure/paragraphing,
+     ideas & development, cohesion, sentence control, vocabulary, punctuation & spelling,
+     and audience/persuasion. Heuristic (honest about that), but scores real dimensions and
+     returns a per-criterion band (Developing / On track / Strong) + one specific next step. */
   evalWriting(text) {
-    const words = text.trim().split(/\s+/).filter(Boolean);
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 2);
-    const fb = [];
-    fb.push(words.length < 30 ? `Length: aim for more — strong answers develop an idea over several sentences (you wrote ${words.length} words).` : `Length: solid (${words.length} words).`);
-    if (sentences.length >= 3) {
-      const lens = sentences.map(s => s.trim().split(/\s+/).length);
-      const varied = Math.max(...lens) - Math.min(...lens) >= 5;
-      fb.push(varied ? `Sentence variety: nice mix of short and long sentences — that controls rhythm.` : `Sentence variety: your sentences are similar lengths. Try one short punchy sentence for impact.`);
-    }
-    const connectives = ["because", "however", "therefore", "although", "furthermore", "instead", "despite"];
-    const used = connectives.filter(c => text.toLowerCase().includes(c));
-    fb.push(used.length ? `Connectives: good use of ${used.slice(0,3).join(", ")} — they glue your logic together.` : `Connectives: add linking words (because, however, therefore) to show your reasoning.`);
-    fb.push(/i (think|believe|argue)|should|must|clearly/i.test(text) ? `Voice: you take a clear position — examiners reward that.` : `Voice: state your position clearly ("I believe…") so the reader knows where you stand.`);
-    return fb;
+    const t = (text || "").trim();
+    const words = t.split(/\s+/).filter(Boolean);
+    const wc = words.length;
+    const sentences = t.split(/[.!?]+/).map(s => s.trim()).filter(s => s.split(/\s+/).length >= 2);
+    const paras = t.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+    const lower = t.toLowerCase();
+    const crit = [];
+    const rate = (label, band, note) => crit.push({ label, band, note }); // band: 1 Developing / 2 On track / 3 Strong
+
+    // 1. Length & development
+    rate("Ideas & development", wc >= 220 ? 3 : wc >= 120 ? 2 : 1,
+      wc >= 220 ? `Well developed (${wc} words) — you gave your ideas room to grow.`
+      : wc >= 120 ? `Good length (${wc} words). Push one idea further with an example or reason.`
+      : `Only ${wc} words — develop each idea with a "because…" and an example.`);
+
+    // 2. Structure & paragraphing
+    const hasParas = paras.length >= 2;
+    rate("Structure & paragraphs", hasParas && paras.length >= 3 ? 3 : hasParas ? 2 : 1,
+      hasParas ? `${paras.length} paragraphs — good structure (leave a blank line between them).`
+      : `Break it into paragraphs: an opening, a middle that builds, and an ending. (Press Enter twice for a new paragraph.)`);
+
+    // 3. Sentence control & variety
+    const lens = sentences.map(s => s.split(/\s+/).length);
+    const varied = lens.length >= 3 && (Math.max(...lens) - Math.min(...lens) >= 6);
+    const runOn = lens.some(l => l > 40);
+    rate("Sentence control", runOn ? 1 : varied ? 3 : sentences.length >= 3 ? 2 : 1,
+      runOn ? `One sentence runs very long — split it so each idea gets its own sentence.`
+      : varied ? `Nice mix of short and long sentences — that controls the rhythm.`
+      : `Vary your sentences: try one short, punchy sentence after a longer one.`);
+
+    // 4. Cohesion (connectives)
+    const conns = ["because", "however", "therefore", "although", "furthermore", "in addition", "for example", "as a result", "on the other hand", "firstly", "finally", "instead", "despite"];
+    const usedC = conns.filter(c => lower.includes(c));
+    rate("Cohesion", usedC.length >= 3 ? 3 : usedC.length >= 1 ? 2 : 1,
+      usedC.length ? `Good linking words (${usedC.slice(0, 3).join(", ")}) — they guide the reader.`
+      : `Add linking words (because, however, for example, as a result) to join your ideas.`);
+
+    // 5. Vocabulary
+    const uniq = new Set(words.map(w => w.toLowerCase().replace(/[^a-z']/g, ""))).size;
+    const rich = wc ? uniq / wc : 0;
+    const strongVerbs = /(argue|reveal|demonstrate|imagine|transform|discover|insist|persuade|consider)/i.test(t);
+    rate("Vocabulary", (rich > 0.6 && strongVerbs) ? 3 : (rich > 0.5 || strongVerbs) ? 2 : 1,
+      strongVerbs ? `Strong word choices — precise verbs make writing vivid.`
+      : `Reach for sharper words: swap "good/said/big" for "convincing/argued/enormous".`);
+
+    // 6. Punctuation & spelling (surface, honest heuristic)
+    const capStarts = sentences.filter(s => /^[A-Z"]/.test(s)).length;
+    const capOk = sentences.length ? capStarts / sentences.length >= 0.8 : true;
+    const endMarks = (t.match(/[.!?]/g) || []).length;
+    rate("Punctuation", capOk && endMarks >= Math.max(2, sentences.length - 1) ? 3 : capOk || endMarks >= 2 ? 2 : 1,
+      !capOk ? `Start every sentence with a capital letter.`
+      : endMarks < 2 ? `End each sentence with a . ! or ?`
+      : `Capitals and end marks look solid.`);
+
+    // 7. Audience & persuasion / voice
+    const persuasive = /(i (think|believe|argue)|should|must|clearly|surely|imagine|what if|everyone|% |percent|research)/i.test(t);
+    const rhetorical = /\?/.test(t);
+    rate("Audience & voice", persuasive && rhetorical ? 3 : persuasive ? 2 : 1,
+      persuasive ? `You take a clear stance${rhetorical ? " and use a rhetorical question — persuasive!" : ". Add a rhetorical question to pull the reader in."}`
+      : `State your position clearly ("I believe…") and speak to the reader.`);
+
+    const score = crit.reduce((s, c) => s + c.band, 0);
+    const max = crit.length * 3;
+    const overall = score / max >= 0.8 ? "Strong piece — genuinely close to exam standard." : score / max >= 0.55 ? "On track — a redraft on the flagged points will lift it." : "Good start — the notes below are your fastest way to improve.";
+    return { criteria: crit, score, max, overall,
+      // legacy flat list for any old callers
+      list: crit.map(c => `${c.label} — ${["Developing", "On track", "Strong"][c.band - 1]}: ${c.note}`) };
   },
 
   /* Articulation feedback: score a spoken (or typed) response on clarity, completeness,
@@ -2485,6 +2657,9 @@ function addXp(n) {
   if (n >= CONFIG.xpCorrect) { addGems(SES.childId, GEMS.correct); gemFloat(); }
   updateClassBar();
 }
+function avatarReact(kind) {
+  document.querySelectorAll(".avatar").forEach(a => { a.classList.remove("celebrate", "oops"); void a.offsetWidth; a.classList.add(kind); setTimeout(() => a.classList.remove(kind), 700); });
+}
 function gemFloat() {
   SFX.play("gem");
   const host = document.getElementById("msgs"); if (!host) return;
@@ -2521,8 +2696,9 @@ function gateTurn(text) {
     sys("Whoa, speedy! Give me a second to think. 🐢"); return false;
   }
   SES.lastMsgAt = now;
-  if (text.length > CONFIG.maxMsgLen) {
-    sys(`That's a long one! Can you say it in fewer words? (max ${CONFIG.maxMsgLen} letters)`); return false;
+  const cap = SES.mode === "writing" ? (CONFIG.writingMaxLen || 3000) : CONFIG.maxMsgLen;
+  if (text.length > cap) {
+    sys(`That's a long one! Can you trim it a little? (max ${cap} letters)`); return false;
   }
   const flag = SAFETY.check(text);
   if (flag) {
@@ -2638,6 +2814,7 @@ function handleAnswer(value, isTyped) {
   if (SES.answered) return;
   const correct = it.check(value);
   SFX.play(correct ? "correct" : "wrong");
+  avatarReact(correct ? "celebrate" : "oops");
   if (SES.mode === "diagnostic") { SES.answered = true; return recordDiagnostic(correct); }
   if (SES.mode === "quiz") { SES.answered = true; return recordQuiz(correct); }
   if (SES.mode === "review") { SES.answered = true; return recordReview(correct); }
@@ -2645,6 +2822,7 @@ function handleAnswer(value, isTyped) {
   if (SES.mode === "selmock") return recordMock(correct);
   if (SES.mode === "custom") return recordCustom(correct);
   if (SES.mode === "daily") return recordDaily(correct);
+  if (SES.mode === "reading") return recordReading(correct);
   if (SES.mode === "selective") return recordSelective(correct);
   /* learn / challenge */
   bumpStat(it.skillId, correct);
@@ -2963,8 +3141,9 @@ function screenSelective(childId) {
       <button class="spark small" onclick="startSelectiveMock('${childId}')">Start mock</button></div></div>
     <p class="dim" style="margin:4px 2px"><small>Or practise one area at a time:</small></p>
     ${SELECTIVE_SECTIONS.map(s => `<div class="card">
-      <div class="row spread"><div><b>${s.name}</b></div>
-      <button class="primary small" onclick="${s.writing ? `startWritingSession('${childId}')` : `startSelectiveSession('${childId}','${s.id}')`}">Practise</button></div></div>`).join("")}`);
+      <div class="row spread"><div><b>${s.name}</b>${s.id === "reading" ? `<div class="dim"><small>Quick questions, or a full passage to read closely.</small></div>` : ""}</div>
+      <div class="row" style="gap:6px">${s.id === "reading" ? `<button class="spark small" onclick="startReadingPassage('${childId}')">📖 Full passage</button>` : ""}
+      <button class="primary small" onclick="${s.writing ? `startWritingSession('${childId}')` : `startSelectiveSession('${childId}','${s.id}')`}">Practise</button></div></div></div>`).join("")}`);
 }
 function startSelectiveSession(childId, sectionId) {
   const c = S.children.find(x => x.id === childId);
@@ -3255,16 +3434,20 @@ function startWriting() {
     "Some people say homework should be banned. What do you think? Argue your case.",
     "Describe your perfect invention and convince me the world needs it.",
   ];
-  say(`✍️ Writing practice! Here's your prompt:\n\n"${pick(prompts)}"\n\nWrite a paragraph or two, then send — I'll give you specific feedback like a marker would.`);
+  say(`✍️ Writing practice! Here's your prompt:\n\n"${pick(prompts)}"\n\nWrite a full response — an opening, a middle that builds your ideas, and an ending. Take your time (you've got room for a proper piece). When you're done, send it and I'll mark it across the things examiners look for.`);
   setOpts([]); showInput(true);
-  document.getElementById("kidin").placeholder = "Write your answer here…";
+  const inp = document.getElementById("kidin");
+  if (inp) { inp.placeholder = "Write your piece here… (press Enter twice for a new paragraph)"; inp.maxLength = CONFIG.writingMaxLen || 3000; }
   setActions([["Different prompt 🎲", () => startWriting()], ["🧰 Tools", () => openTools()]]);
 }
 function writingReply(text) {
-  const fb = Engine.evalWriting(text);
-  say(`Here's my marker-style feedback:\n\n• ${fb.join("\n• ")}\n\nWant to redraft it stronger? Redrafting is where real writers are made.`);
+  const r = Engine.evalWriting(text);
+  const badge = ["🔴 Developing", "🟡 On track", "🟢 Strong"];
+  const lines = r.criteria.map(c => `${badge[c.band - 1]} ${c.label}: ${c.note}`).join("\n");
+  say(`✍️ Marker feedback — ${r.score}/${r.max}\n\n${lines}\n\n${r.overall}`);
   addXp(CONFIG.xpCorrect);
-  setActions([["Redraft ✍️", () => { say("Go for it — send the new version when ready!"); }], ["New prompt 🎲", () => startWriting()]]);
+  addGems(SES.childId, GEMS.milestone); gemFloat(); // writing is high-effort — reward it
+  setActions([["Redraft ✍️", () => { say("Great — improving on the 🔴/🟡 points is exactly how real writers get better. Send your new version and I'll re-mark it!"); }], ["New prompt 🎲", () => startWriting()], ["Done ⭐", () => endSession()]]);
 }
 
 /* ============================================================
@@ -3440,6 +3623,47 @@ function mindReply(text) {
   addGems(SES.childId, GEMS.correct); gemFloat();
   setActions([["Another tip 🧠", () => nextMindLesson()], ["Home ⭐", () => endSession()]]);
   showInput(false);
+}
+
+/* ---------- READING PASSAGES: sustained comprehension (the real Selective/NAPLAN skill) —
+   read a full passage, then answer linked questions, with re-read on tap. ---------- */
+function startReadingPassage(childId, band) {
+  const c = S.children.find(x => x.id === childId); if (!c) return screenProfiles();
+  SES = examSessionShell(childId, c, "reading");
+  const b = band != null ? band : Math.max(1, bandOf(c.year));
+  SES.passage = Engine.readingPassage(b); SES.pq = 0; SES.readCorrect = 0;
+  renderSessionShell(c, "📖 Reading");
+  say(`📖 ${SES.passage.genre === "poetry" ? "Read this poem" : "Read this passage"} carefully, then I'll ask you a few questions. Great readers read it twice — there's no rush.`, "Reading comprehension — original passage");
+  showPassage();
+  setTimeout(nextReadingQ, 1400);
+}
+function showPassage() { say(`📖 ${SES.passage.title}\n\n${SES.passage.text}`, "You can re-read this any time — tap 📖 Re-read"); }
+function nextReadingQ() {
+  if (SES.pq >= SES.passage.questions.length) return finishReading();
+  const pq = SES.passage.questions[SES.pq++];
+  presentItem({ skillId: "reading:" + pq.skill, skillName: pq.skill, q: pq.q, opts: pq.opts, answer: pq.opts[pq.a], check: v => Number(v) === pq.a, hints: pq.hints, worked: pq.worked });
+  setActions([["📖 Re-read", () => showPassage()], ["💡 Hint", () => giveHint()]]);
+}
+function recordReading(correct) {
+  if (SES.answered) return;
+  bumpStat(SES.item.skillId, correct);
+  if (correct) {
+    SES.answered = true; SES.readCorrect++;
+    say(SES.child.focus ? pick(["Correct.", "That's it.", "Right."]) : GREETINGS.celebrate()); addXp(CONFIG.xpCorrect);
+    setTimeout(nextReadingQ, 900);
+  } else {
+    SES.attempts++;
+    if (SES.attempts >= 2) { SES.answered = true; say(`Let's look again together:\n\n${SES.item.worked}`); setTimeout(nextReadingQ, 2000); }
+    else { addXp(CONFIG.xpAttempt); say(`${GREETINGS.encourage()} ${SES.item.hints[0]}\n\n📖 Tip: tap "Re-read" and hunt for the exact words.`); if (SES.item.opts) setOpts(SES.item.opts); }
+  }
+}
+function finishReading() {
+  const cid = SES.childId, n = SES.passage.questions.length, ok = SES.readCorrect;
+  if (n && ok / n >= 0.7) { confetti(); awardBadge(cid, "Close Reader"); }
+  addGems(cid, GEMS.sessionFinish);
+  say(`📖 Lovely reading — ${ok}/${n} on "${SES.passage.title}"! 💎 +${GEMS.sessionFinish}\nReading a whole text and thinking hard about it is exactly the skill Selective and NAPLAN reward.`);
+  setOpts([]); showInput(false);
+  setActions([["Another passage 📖", () => startReadingPassage(cid)], ["🏆 Reading section", () => { endSessionSilently(); screenSelective(cid); }], ["Home ⭐", () => { endSessionSilently(); screenHome(cid); }]]);
 }
 
 /* ---------- DAILY SPARK: the ethical daily-return loop. A fresh ~5-min mission each day

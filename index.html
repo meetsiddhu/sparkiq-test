@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SparkIQ — your learning companion</title>
 <meta name="description" content="One friendly AI learning companion across every subject — Australian curriculum, privacy-first, no ads ever.">
+<!-- Installable to the iPad/phone home screen so it lives as a real app icon (an ethical return surface — no notifications). -->
+<meta name="theme-color" content="#0b1026">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SparkIQ">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='180' height='180' rx='40' fill='%230b1026'/%3E%3Ctext x='90' y='128' font-size='110' text-anchor='middle'%3E%E2%AD%90%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22SparkIQ%22%2C%22short_name%22%3A%22SparkIQ%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230b1026%22%2C%22theme_color%22%3A%22%230b1026%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D%2527http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2527%2520width%253D%2527192%2527%2520height%253D%2527192%2527%253E%253Crect%2520width%253D%2527192%2527%2520height%253D%2527192%2527%2520rx%253D%252742%2527%2520fill%253D%2527%25230b1026%2527%252F%253E%253Ctext%2520x%253D%252796%2527%2520y%253D%2527138%2527%2520font-size%253D%2527118%2527%2520text-anchor%253D%2527middle%2527%253E%25E2%25AD%2590%253C%252Ftext%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
 <style>
 /* SparkIQ — night-sky learning companion */
 :root {
@@ -298,6 +305,16 @@ ul.clean { list-style: none; } ul.clean li { padding: 6px 0; border-bottom: 1px 
 .coach-card { border-width: 2px; }
 .coach-head { display: flex; align-items: center; gap: 12px; }
 .coach-emoji { font-size: 2.2em; line-height: 1; filter: drop-shadow(0 0 10px var(--pcol)); }
+
+/* ---------- Daily Spark + focus (teen) mode ---------- */
+.daily-hero { background: linear-gradient(100deg, rgba(255,209,102,.14), rgba(143,155,255,.10)); border-color: var(--spark); }
+.daily-hero.done { background: rgba(124,227,139,.08); border-color: var(--good); }
+.daydots { margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+.daydot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,.12); display: inline-block; }
+.daydot.on { background: var(--good); box-shadow: 0 0 8px var(--good); }
+:root.focus .glyph, :root.focus .coach-faces { filter: saturate(.85); }
+:root.focus .cf { display: none; } /* calmer celebration for older kids */
+:root.focus .avatar { animation: none; }
 
 </style>
 </head>
@@ -1860,6 +1877,7 @@ function blankState() {
     settings: { engine: "local", provider: "anthropic", endpoint: "", key: "", model: "" },
     freeSubject: {},
     custom: [], // teacher/tutor-authored exercises (parent-PIN-gated to add)
+    daily: {},  // Daily Spark: { childId: { last: "YYYY-MM-DD", days: [dates], intention: "" } }
   };
 }
 let S = load();
@@ -1934,6 +1952,7 @@ function ownsItem(childId, kind, id) { return ownedList(childId, kind).includes(
 /* Apply a child's equipped theme (CSS variables) + return their avatar with any equipped sticker. */
 function applyTheme(child) {
   const root = document.documentElement;
+  root.classList.toggle("focus", !!(child && child.focus)); // calmer register for older kids
   const themeId = (child && child.theme) || "midnight";
   const t = shopItem("themes", themeId) || SHOP.themes[0];
   // clear any previously-set theme vars, then apply
@@ -1958,7 +1977,35 @@ function modal(html, onMount) {
   if (onMount) onMount(veil);
   return veil;
 }
+/* ---------- SFX: tiny WebAudio sound kit (no assets). "Juicy" feedback the council flagged
+   as missing. Gentle, short, mutable; silent if the child/parent turns sound off. ---------- */
+const SFX = {
+  ctx: null, on: true,
+  init() { if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.ctx = null; } } },
+  muted() { const c = SES && SES.child; return (c && c.sound === false) || this.on === false; },
+  tone(freq, dur, type, when, gain) {
+    if (!this.ctx) return;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type || "sine"; o.frequency.value = freq;
+    const t = this.ctx.currentTime + (when || 0);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain || 0.14, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t + dur + 0.02);
+  },
+  play(kind) {
+    if (this.muted()) return; this.init(); if (!this.ctx) return;
+    if (this.ctx.state === "suspended") this.ctx.resume();
+    if (kind === "correct") { this.tone(660, 0.12, "sine", 0); this.tone(880, 0.14, "sine", 0.08); }
+    else if (kind === "wrong") { this.tone(300, 0.16, "triangle", 0, 0.10); }
+    else if (kind === "star") { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.14, "sine", i * 0.07)); }
+    else if (kind === "celebrate") { [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(f, 0.18, "triangle", i * 0.06, 0.12)); }
+    else if (kind === "gem") { this.tone(1200, 0.08, "sine", 0, 0.08); this.tone(1600, 0.08, "sine", 0.05, 0.06); }
+    else if (kind === "tap") { this.tone(440, 0.05, "sine", 0, 0.06); }
+  },
+};
 function confetti() {
+  SFX.play("celebrate");
   const c = document.getElementById("confetti");
   const colors = ["#ffd166", "#8f9bff", "#7ce38b", "#ff8fa3", "#7de0ff"];
   for (let i = 0; i < 70; i++) {
@@ -2224,6 +2271,13 @@ function screenHome(childId) {
       </span>
     </div>
     <div class="card" style="padding:16px 20px"><p>${esc(greet)}</p></div>
+    ${(() => { const d = dailyState(childId); const done = dailyDoneToday(childId);
+      const wk = d.days.filter(x => (Date.now() - new Date(x).getTime()) < 7 * 864e5).length;
+      const dots = Array.from({length:7}, (_,i)=>`<span class="daydot ${i < wk ? "on":""}"></span>`).join("");
+      return done
+        ? `<div class="card daily-hero done"><div class="row spread"><div><b>✅ Daily Spark done today!</b><br><small class="dim">Brilliant. A fresh one lands tomorrow — no rush, no pressure.</small><div class="daydots">${dots} <small class="dim">${wk} this week 🌱</small></div></div></div></div>`
+        : `<div class="card tile-pop daily-hero" style="cursor:pointer" onclick="startDailySpark('${childId}')"><div class="row spread"><div><b>🌟 Your Daily Spark is ready!</b><br><small class="dim">4 quick questions + a wonder + a brain tip — about 5 minutes.</small><div class="daydots">${dots} <small class="dim">${wk} learning day${wk!==1?"s":""} this week 🌱</small></div></div><button class="spark small">Start →</button></div></div>`;
+    })()}
     <div class="card tile-pop coach-banner" style="cursor:pointer" onclick="screenCoaches('${childId}')">
       <div class="row spread"><div><b>🧑‍🏫 Coach Corner</b><br>
       <small class="dim">Your expert team: a Master Teacher, a Communication Coach &amp; a Mind Coach.</small></div>
@@ -2432,6 +2486,7 @@ function addXp(n) {
   updateClassBar();
 }
 function gemFloat() {
+  SFX.play("gem");
   const host = document.getElementById("msgs"); if (!host) return;
   const f = document.createElement("div"); f.className = "gemfloat"; f.textContent = "💎 +1";
   host.appendChild(f); setTimeout(() => f.remove(), 1200);
@@ -2582,20 +2637,28 @@ function handleAnswer(value, isTyped) {
      question renders — double-taps must never double-count. */
   if (SES.answered) return;
   const correct = it.check(value);
+  SFX.play(correct ? "correct" : "wrong");
   if (SES.mode === "diagnostic") { SES.answered = true; return recordDiagnostic(correct); }
   if (SES.mode === "quiz") { SES.answered = true; return recordQuiz(correct); }
   if (SES.mode === "review") { SES.answered = true; return recordReview(correct); }
   if (SES.mode === "exam") return recordExam(correct, false);
   if (SES.mode === "selmock") return recordMock(correct);
   if (SES.mode === "custom") return recordCustom(correct);
+  if (SES.mode === "daily") return recordDaily(correct);
   if (SES.mode === "selective") return recordSelective(correct);
   /* learn / challenge */
   bumpStat(it.skillId, correct);
   if (correct) {
     SES.answered = true;
     SES.correctStreak++;
-    say(GREETINGS.celebrate());
+    // Reward EFFORT, not just being right: a comeback after a miss earns a bonus gem + growth-mindset
+    // praise. This is the fix for "the struggling kid earns least" — persistence is what we want.
+    const comeback = SES.attempts > 0;
+    const dry = SES.child.focus; // older kids: respectful, low-key acknowledgement, not confetti-speak
+    say(comeback ? (dry ? `Good — you worked through it.` : `💪 Comeback! You stuck with it and got there — that's exactly how brains grow.`)
+                 : (dry ? pick(["Correct.", "That's the one.", "Right — nicely done.", "Yep, that's it."]) : GREETINGS.celebrate()));
     addXp(CONFIG.xpCorrect);
+    if (comeback) { addGems(SES.childId, GEMS.correct); }
     const milestone = classMilestone();
     if (SES.correctStreak === 3) { starEarned(); }
     setTimeout(nextLearn, milestone ? 1300 : 800);
@@ -2691,6 +2754,9 @@ function finishDiagnostic() {
   const lv = levelsFor(SES.childId, SES.subject);
   const ratio = SES.diagCorrect / CONFIG.diagnosticQuestions;
   lv.level = ratio >= 0.8 ? 3 : ratio >= 0.4 ? 2 : 1;
+  // Difficulty follows ABILITY, not just age: acing the diagnostic lifts the working band ABOVE
+  // the child's year (a gifted Year 6 can reach into higher-band content); struggling eases it.
+  lv.workBand = ratio >= 0.8 ? Math.min(4, SES.band + 1) : ratio < 0.4 ? Math.max(0, SES.band - 1) : SES.band;
   lv.diag = "done"; lv.diagAt = Date.now();
   if (!S.freeSubject[SES.childId] && tier().subjects !== "all") S.freeSubject[SES.childId] = SES.subject;
   S.northStar.diag++; save();
@@ -2712,6 +2778,8 @@ function finishDiagnostic() {
 function applySelfReport(adj) {
   const lv = levelsFor(SES.childId, SES.subject);
   lv.level = Math.max(1, Math.min(3, lv.level + adj));
+  // The child's own read also moves the working band — "too easy" lets them climb, even past their year.
+  if (adj !== 0) lv.workBand = Math.max(0, Math.min(4, (lv.workBand != null ? lv.workBand : SES.band) + adj));
   lv.selfReport = adj < 0 ? "too_hard" : adj > 0 ? "too_easy" : "just_right";
   save();
   setOpts([]);
@@ -2755,10 +2823,11 @@ function beginLearn() {
 }
 function learnBand() {
   const lv = levelsFor(SES.childId, SES.subject);
-  let b = SES.band;
-  if (lv.challenge) b = Math.min(4, b + 1);
+  // Base on the ability-measured working band (may be above/below the child's year), not age.
+  let b = lv.workBand != null ? lv.workBand : SES.band;
+  if (lv.challenge) b = Math.min(4, b + 1);          // "work ahead" pushes one further still
   else if (lv.level === 1 && Math.random() < 0.35) b = Math.max(0, b - 1);
-  else if (lv.level === 3 && Math.random() < 0.3) b = Math.min(4, b + 1);
+  else if (lv.level === 3 && Math.random() < 0.35) b = Math.min(4, b + 1);
   return b;
 }
 function nextLearn(skillId) {
@@ -2838,6 +2907,7 @@ function recordReview(correct) {
     r.idx = 0; r.lapses++; r.due = Date.now() + 864e5;
     say(`Not yet — here's the key idea again:\n\n${SES.item.worked}\n\nI'll bring it back tomorrow. Forgetting then re-finding is literally how memory works.`);
     addXp(CONFIG.xpAttempt);
+    addGems(SES.childId, GEMS.correct); // showing up to review IS the win — reward the behaviour, not the streak
   }
   save();
   setTimeout(nextReview, 1400);
@@ -3370,6 +3440,79 @@ function mindReply(text) {
   addGems(SES.childId, GEMS.correct); gemFloat();
   setActions([["Another tip 🧠", () => nextMindLesson()], ["Home ⭐", () => endSession()]]);
   showInput(false);
+}
+
+/* ---------- DAILY SPARK: the ethical daily-return loop. A fresh ~5-min mission each day
+   (a few questions at the child's ability + a wonder fact + a coach tip), a GAIN-ONLY
+   "learning days" collection (never a losable streak), and a kid-set intention for tomorrow.
+   No FOMO, no loss-framing, no pressure — a reason to come back, not a threat. ---------- */
+function dailyState(childId) { S.daily = S.daily || {}; return S.daily[childId] = S.daily[childId] || { last: "", days: [], intention: "" }; }
+function dailyDoneToday(childId) { return dailyState(childId).last === todayKey(); }
+function dailySubjects(childId) {
+  const started = Object.keys(S.levels[childId] || {}).filter(id => SUBJECTS.some(s => s.id === id && s.id !== "explore"));
+  const base = started.length ? started : ["maths", "english"];
+  const pool = [...new Set([...base, "thinking", "maths", "english"])].filter(x => x !== "explore");
+  return shuffle(pool).slice(0, 3);
+}
+function startDailySpark(childId) {
+  const c = S.children.find(x => x.id === childId); if (!c) return screenProfiles();
+  SES = examSessionShell(childId, c, "daily");
+  SES.band = bandOf(c.year);
+  SES.dailyQ = 0; SES.dailyTarget = 4; SES.dailyCorrect = 0; SES.dailySubs = dailySubjects(childId);
+  renderSessionShell(c, "🌟 Daily Spark");
+  const intro = dailyState(childId).intention
+    ? `🌟 Daily Spark, ${esc(c.nickname)}! Last time you wanted to ${esc(dailyState(childId).intention)} — nice. Four quick ones, a wonder, and a brain tip. Let's go!`
+    : `🌟 Here's your Daily Spark, ${esc(c.nickname)}! Four quick questions, a "did you know?", and a brain tip — about five minutes. Ready?`;
+  say(intro, "A fresh mission every day");
+  setTimeout(nextDaily, 800);
+}
+function nextDaily() {
+  if (SES.dailyQ >= SES.dailyTarget) return dailyWonder();
+  const subj = SES.dailySubs[SES.dailyQ % SES.dailySubs.length];
+  SES.dailyQ++;
+  const lv = levelsFor(SES.childId, subj);
+  const band = subj === "thinking" ? SES.band : (lv.workBand != null ? lv.workBand : SES.band);
+  presentItem(Engine.question(subj, band, { avoid: SES.recentQs }));
+}
+function recordDaily(correct) {
+  if (SES.answered) return;
+  bumpStat(SES.item.skillId, correct);
+  if (correct) {
+    SES.answered = true; SES.dailyCorrect++;
+    say(SES.attempts > 0 ? `💪 Stuck with it — love that!` : GREETINGS.celebrate());
+    addXp(CONFIG.xpCorrect);
+    setTimeout(nextDaily, 800);
+  } else {
+    SES.attempts++;
+    if (SES.attempts >= 2) { SES.answered = true; say(`Good try! Here's the idea:\n\n${SES.item.worked}`); setTimeout(nextDaily, 1600); }
+    else { addXp(CONFIG.xpAttempt); say(GREETINGS.encourage() + " " + SES.item.hints[0]); if (SES.item.opts) setOpts(SES.item.opts); }
+  }
+}
+function dailyWonder() {
+  const w = pick(EXPLORE_BANK); const tip = pick(MINDSET);
+  say(`🔭 Did you know? ${w.a}`, "Your daily wonder");
+  setTimeout(() => { say(`${tip.emoji} Brain tip: ${tip.lesson}`, "Coach Sky", coachById("mind")); setTimeout(finishDaily, 400); }, 700);
+}
+function finishDaily() {
+  if (SES.dailyFinished) return; SES.dailyFinished = true; // never double-award
+  const cid = SES.childId, d = dailyState(cid);
+  const first = d.last !== todayKey();
+  if (first) { d.last = todayKey(); if (!d.days.includes(todayKey())) d.days.push(todayKey()); d.days = d.days.slice(-60); }
+  save();
+  addGems(cid, 10); confetti();
+  const daysThisWeek = d.days.filter(x => (Date.now() - new Date(x).getTime()) < 7 * 864e5).length;
+  say(`🌟 Daily Spark complete — ${SES.dailyCorrect}/${SES.dailyTarget} + a wonder + a brain tip! 💎 +10\nThat's ${daysThisWeek} learning day${daysThisWeek > 1 ? "s" : ""} this week 🌱 — every day you show up, your brain grows.`);
+  showInput(false); setOpts([]);
+  // Curiosity cliffhanger + a self-set intention for tomorrow (autonomy → intrinsic pull to return).
+  say(`💭 Before you go — what would YOU love to get better at next time?`);
+  const o = document.getElementById("opts"); if (o) { o.innerHTML = "";
+    ["faster maths", "trickier words", "a big question", "my speaking"].forEach(lbl => {
+      const b = document.createElement("button"); b.className = "chip"; b.textContent = lbl;
+      b.onclick = () => { d.intention = lbl; save(); kidSay(lbl); say(`Brilliant — I'll remember. See you tomorrow for that, ${esc((S.children.find(x=>x.id===cid)||{}).nickname||"")}! 👋`); setActions([["Home ⭐", () => { endSessionSilently(); screenHome(cid); }]]); };
+      o.appendChild(b);
+    });
+  }
+  setActions([["Home ⭐", () => { endSessionSilently(); screenHome(cid); }]]);
 }
 
 /* ---------- Teacher / tutor custom exercises (authoring is PIN-gated in the parent area) ---------- */
@@ -4042,9 +4185,12 @@ function parentTab(tab) {
         </div>
         <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
           <button class="small ghost" onclick="toggleYoung('${c.id}')">${c.young ? "Standard UI" : "Young mode"}</button>
+          <button class="small ${c.focus ? "primary" : "ghost"}" onclick="toggleFocus('${c.id}')">🎯 Focus mode (older kids): ${c.focus ? "on" : "off"}</button>
+          <button class="small ${c.sound === false ? "ghost" : "primary"}" onclick="toggleSound('${c.id}')">🔊 Sound: ${c.sound === false ? "off" : "on"}</button>
           <button class="small ghost" onclick="cycleBuddy('${c.id}')">🔄 Change buddy</button>
           <button class="small ${c.voiceInput ? "primary" : "ghost"}" onclick="toggleVoiceInput('${c.id}')">🎙️ Voice answers: ${c.voiceInput ? "on" : "off"}</button>
-        </div></div>`).join("")}
+        </div>
+        <p class="dim" style="margin:4px 2px 0"><small>Focus mode tones down emoji/confetti and dials back celebrations — better for self-conscious Year 9–12 students.</small></p></div>`).join("")}
       <div class="actions"><button class="primary" onclick="screenAddChild()">＋ Add learner</button></div>
       <p class="dim" style="margin-top:10px"><small>Profiles hold a nickname, year level and curriculum only — by design, nothing else.
       <b>Voice answers</b> let your child speak instead of type. Note: on iPad/iPhone the spoken audio is sent to Apple for transcription (Spark can't avoid that on iOS), so it's off by default — turn it on only if you're comfortable with that. Read-aloud (Spark's voice) is fully on-device.</small></p></div>`;
@@ -4213,6 +4359,8 @@ function bindAiTab() {
   };
 }
 function toggleYoung(id) { const c = S.children.find(x => x.id === id); c.young = !c.young; save(); screenParent("children"); }
+function toggleFocus(id) { const c = S.children.find(x => x.id === id); c.focus = !c.focus; save(); screenParent("children"); }
+function toggleSound(id) { const c = S.children.find(x => x.id === id); c.sound = c.sound === false ? true : false; save(); screenParent("children"); }
 function toggleVoiceInput(id) { const c = S.children.find(x => x.id === id); c.voiceInput = !c.voiceInput; save(); screenParent("children"); }
 function cycleBuddy(id) {
   const c = S.children.find(x => x.id === id);

@@ -2211,29 +2211,51 @@ function starfield() {
    ============================================================ */
 const TTS = {
   supported: typeof speechSynthesis !== "undefined",
-  voices: [],
+  voices: [], _chosen: null,
   load() { if (this.supported) { this.voices = speechSynthesis.getVoices() || []; } },
+  /* Pick the MOST NATURAL voice available (not just the first one that loads — that's usually
+     the robotic "compact" voice). Rank premium/neural/enhanced/Siri highest, then known
+     good natural voices, preferring en-AU then en-GB. Cached; re-picked when voices load. */
   pickVoice() {
+    if (this._chosen) return this._chosen;
     if (!this.voices.length) this.load();
-    const v = this.voices;
-    // Aishu: the default voice sounded robotic. Prefer warm, natural, named human voices
-    // (these ship on iPad/Mac and sound far more human than the generic default).
-    const warm = ["Karen", "Catherine", "Matilda", "Serena", "Samantha", "Moira", "Fiona", "Tessa", "Daniel", "Google UK English Female", "Google US English"];
-    for (const name of warm) { const m = v.find(x => x.name && x.name.includes(name)); if (m) return m; }
-    // Next best: any "enhanced/premium/natural" quality English voice
-    const enhanced = v.find(x => /^en/i.test(x.lang) && /(enhanced|premium|natural|siri)/i.test(x.name || ""));
-    if (enhanced) return enhanced;
-    return v.find(x => /en-AU/i.test(x.lang)) || v.find(x => /en-GB/i.test(x.lang)) || v.find(x => /^en/i.test(x.lang)) || v[0] || null;
+    const v = this.voices; if (!v.length) return null;
+    const isEn = x => /^en(-|_|$)/i.test(x.lang || "");
+    const score = x => {
+      const n = x.name || ""; let s = 0;
+      if (/neural/i.test(n)) s += 120;
+      if (/premium/i.test(n)) s += 110;
+      if (/enhanced/i.test(n)) s += 100;
+      if (/siri/i.test(n)) s += 95;
+      if (/natural/i.test(n)) s += 80;
+      // pleasant, natural-sounding named voices that ship on Apple/Google/Windows
+      if (/\b(Ava|Samantha|Serena|Karen|Matilda|Zoe|Allison|Nicky|Aria|Jenny|Sonia|Libby|Catherine|Moira|Fiona|Tessa)\b/i.test(n)) s += 45;
+      if (/google.*(natural|wavenet)/i.test(n)) s += 60;
+      if (/google/i.test(n)) s += 25;
+      if (/en-AU/i.test(x.lang)) s += 25; else if (/en-GB/i.test(x.lang)) s += 14; else if (isEn(x)) s += 6;
+      if (x.localService) s += 8; // on-device = private and usually smoother
+      // penalise the tell-tale robotic ones
+      if (/\b(compact|Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Eloquence|Fred|Grandma|Grandpa|Jester|Junior|Novelty|Organ|Ralph|Superstar|Trinoids|Whisper|Wobble|Zarvox)\b/i.test(n)) s -= 200;
+      return s;
+    };
+    const ranked = v.filter(isEn).sort((a, b) => score(b) - score(a));
+    this._chosen = ranked[0] || v.find(isEn) || v[0] || null;
+    return this._chosen;
   },
   speak(text, persona) {
     if (!this.supported) return;
     try {
       speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(String(text).replace(/[⭐🚀🐨🤖🌟✨🎉💛🔭🧰💡🎤📐📖⚛️🧪🌱🧭🏁🎯🔁🎓😄🙂😕🌏🧠📝🎁🔥🌙💪🌈🎈✔✘→←]/g, "").replace(/\s+/g, " ").slice(0, 400));
-      const v = this.pickVoice(); if (v) u.voice = v;
-      // Slightly slower + gently warm pitch reads as friendlier and clearer for a kid.
-      u.rate = (persona ? persona.rate : 1) * 0.92;
-      u.pitch = persona ? persona.pitch : 1.1;
+      const clean = String(text).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}✅✔✘]/gu, "").replace(/\s+/g, " ").trim().slice(0, 400);
+      if (!clean) return;
+      const u = new SpeechSynthesisUtterance(clean);
+      const v = this.pickVoice(); if (v) { u.voice = v; u.lang = v.lang; }
+      // Human-like prosody: a natural, unhurried rate, and pitch pulled CLOSE to 1.0 (high pitch
+      // is what reads as "chipmunky/robotic"). Persona still varies the voice, but gently.
+      const pr = persona ? persona.rate : 1, pp = persona ? persona.pitch : 1;
+      u.rate = Math.max(0.85, Math.min(1.05, pr * 0.95));
+      u.pitch = Math.max(0.9, Math.min(1.12, 1 + (pp - 1) * 0.45));
+      u.volume = 1;
       u.onstart = () => document.querySelectorAll(".avatar").forEach(a => a.classList.add("speaking"));
       u.onend = () => document.querySelectorAll(".avatar").forEach(a => a.classList.remove("speaking"));
       speechSynthesis.speak(u);
@@ -2241,6 +2263,8 @@ const TTS = {
   },
   stop() { if (this.supported) { try { speechSynthesis.cancel(); } catch (e) {} } document.querySelectorAll(".avatar").forEach(a => a.classList.remove("speaking")); },
 };
+/* Voices often load asynchronously — repopulate + re-pick the best when the browser is ready. */
+if (TTS.supported) { try { TTS.load(); speechSynthesis.onvoiceschanged = () => { TTS._chosen = null; TTS.load(); }; } catch (e) {} }
 if (TTS.supported) { TTS.load(); speechSynthesis.onvoiceschanged = () => TTS.load(); }
 
 const STT = {

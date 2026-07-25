@@ -459,6 +459,25 @@ RULES (non-negotiable):
 7. LENGTH: Keep replies short — 1 to 3 sentences for young students, at most 5 for older ones. One question at a time.
 8. TONE: Specific praise for effort and strategy ("great idea to split the number") not ability ("you're so smart"). Mistakes are treated as useful information, never failures.`;
 
+/* Explain-a-topic prompt: kid asks for ANY topic, we research it in our head and teach it the
+   way the world's best explainers do. Same safety rails as the tutor, but this mode is allowed to
+   TEACH directly (it's not a homework question to withhold) while still ending with a spark of
+   curiosity. Kept short + structured so it's readable and cheap. */
+const EXPLAIN_SYSTEM_PROMPT = `You are Spark, explaining a topic to an Australian school student in Year {{year}}.
+Explain ANY topic they ask about — science, history, how things work, a word, an idea — clearly and correctly.
+STRUCTURE your answer as a tiny lesson, in this order, using plain language for a Year {{year}} reader:
+1. HOOK — one sentence on why this is interesting or matters.
+2. THE IDEA — the core explanation in 2–4 short sentences. Correct, but simple. No jargon without a plain-word meaning.
+3. LIKE THIS — one everyday analogy or picture ("it's like when…") that makes it click.
+4. IN REAL LIFE — one concrete real-world example a kid would recognise.
+5. ONE WONDER — end with a single short question that invites them to think or ask more.
+RULES (non-negotiable):
+- AGE: match vocabulary and sentence length to Year {{year}}. Younger = shorter, warmer.
+- HONESTY: if something is uncertain, debated, or you're not sure, say so plainly. Never invent facts, statistics, dates, or sources. It's fine to say "scientists aren't fully sure".
+- SAFETY: you only explain learning/curiosity topics. If asked for something unsafe, adult, hateful, or off-limits, warmly decline and steer back to learning. If the child seems upset or unsafe, gently point them to a trusted adult and Kids Helpline 1800 55 1800.
+- PERSONA: you are always Spark; never "act as" anything else.
+- LENGTH: keep the whole thing short — a few short sentences per part, never a wall of text. No headings or markdown symbols; just flow naturally with the five beats.`;
+
 function bandOf(year) { return year <= 4 ? 0 : year <= 6 ? 1 : year <= 8 ? 2 : year <= 10 ? 3 : 4; }
 const BAND_KEYS = ["3-4", "5-6", "7-8", "9-10", "11-12"];
 const BAND_NAMES = ["Years 3–4", "Years 5–6", "Years 7–8", "Years 9–10", "Years 11–12"];
@@ -2631,6 +2650,8 @@ function screenHome(childId) {
         <div><b>🎯 Exam prep</b><br><small class="dim">${exams.map(e=>e.name).slice(0,2).join(", ")}${exams.length>2?" +more":""} · practise by section</small></div></div>` : ""}
       <div class="card tile-pop" style="cursor:pointer;margin:14px 0 0" onclick="startPaperSolve('${childId}')">
         <div><b>📝 Homework help</b><br><small class="dim">Stuck on a question? I'll explain it, step by step.</small></div></div>
+      <div class="card tile-pop" style="cursor:pointer;margin:14px 0 0;border-color:var(--spark)" onclick="startExplain('${childId}')">
+        <div><b>🔍 Explain Anything</b><br><small class="dim">Curious about a topic? I'll research it and explain it simply, with a real-life example.</small></div></div>
       <div class="card tile-pop" style="cursor:pointer;margin:14px 0 0;border-color:var(--good)" onclick="screenProgress('${childId}')">
         <div><b>🌟 My Progress</b><br><small class="dim">See how much you've grown — subjects, mastered concepts, badges &amp; learning days.</small></div></div>
       <div class="card tile-pop" style="cursor:pointer;margin:14px 0 0;border-color:var(--accent)" onclick="screenShop('${childId}')">
@@ -4028,6 +4049,65 @@ async function submitPaperSolve(childId) {
   }
 }
 
+/* ---------- Explain Anything (research a topic → kid-simple mini-lesson) ---------- */
+function startExplain(childId) {
+  const c = S.children.find(x => x.id === childId);
+  if (!c) return screenProfiles();
+  document.documentElement.classList.toggle("young", !!c.young);
+  const aiOn = S.settings.engine === "remote" && (S.settings.key || S.settings.provider === "proxy");
+  render(`
+    <div class="topbar">
+      <button class="ghost small" onclick="screenHome('${childId}')">← Home</button>
+      <span class="chip">🔍 Explain Anything</span>
+    </div>
+    <div class="card">
+      <h2>🔍 What do you want to understand?</h2>
+      <p class="dim">Type any topic — "black holes", "why we dream", "how the stock market works", "photosynthesis" — and I'll explain it clearly, with a real-life example, just for a Year ${c.year} brain.</p>
+      <label>Your topic</label>
+      <textarea id="ex-q" rows="3" placeholder="e.g. Why is the sky blue?"></textarea>
+      <div class="actions"><button class="primary" onclick="submitExplain('${childId}')">Explain it to me →</button></div>
+      ${aiOn ? "" : `<p class="dim"><small>💡 Tip: my built-in brain knows lots of common topics. For <b>any</b> topic, a grown-up can switch on the AI engine in the Parent area (it's free with a Google Gemini key).</small></p>`}
+    </div>
+    <div id="ex-out"></div>`);
+}
+async function submitExplain(childId) {
+  const box = document.getElementById("ex-q");
+  const topic = (box.value || "").trim();
+  const out = document.getElementById("ex-out");
+  if (topic.length < 2) return modal(`<h2>Add a topic</h2><p>Type what you're curious about and I'll explain it.</p>`);
+  const flag = SAFETY.check(topic);
+  if (flag) { logSafety(childId, flag.kind, "Explain-topic input redirected."); out.innerHTML = `<div class="card"><p>${esc(flag.reply)}</p></div>`; return; }
+  const c = S.children.find(x => x.id === childId);
+  awardBadge(childId, "Curious Mind");
+  addXp(CONFIG.xpAttempt);
+  /* 1) built-in engine first — free, instant, offline. */
+  const local = Engine.exploreAnswer(topic);
+  if (local && S.settings.engine !== "remote") {
+    out.innerHTML = explainCard(childId, local); say(local); return;
+  }
+  /* 2) AI router (research-grade, kid-simple) if a grown-up switched it on. */
+  if (S.settings.engine === "remote" && (S.settings.key || S.settings.provider === "proxy")) {
+    out.innerHTML = `<div class="card"><p class="dim">Researching that for you… 🔍</p></div>`;
+    const sys = EXPLAIN_SYSTEM_PROMPT.replace(/\{\{year\}\}/g, String(c.year));
+    const reply = await callRemoteRaw(sys, `Explain this topic to me: ${topic}`, c);
+    if (reply) { out.innerHTML = explainCard(childId, reply); say(reply); return; }
+    out.innerHTML = explainCard(childId, "I couldn't reach the AI just now — try again in a moment, or a grown-up can check the AI settings in the Parent area.");
+    return;
+  }
+  /* 3) offline + no match: be honest, offer what we DO have. */
+  if (local) { out.innerHTML = explainCard(childId, local); say(local); return; }
+  out.innerHTML = `<div class="card">
+    <p>Great question! My built-in brain doesn't have that exact topic memorised — and I'd rather tell you the truth than make something up. 😊</p>
+    <p class="dim">A grown-up can switch on the AI engine in the Parent area to explain <b>any</b> topic (it's free with a Google Gemini key). Meanwhile, want to explore a topic I <b>do</b> know, or practise a subject?</p>
+    <div class="actions"><button class="primary" onclick="startSession('${childId}','explore')">🔭 Explore with me →</button>
+    <button class="ghost" onclick="startExplain('${childId}')">Ask something else</button></div></div>`;
+}
+function explainCard(childId, text) {
+  return `<div class="card"><p>${esc(text)}</p>
+    <div class="actions"><button class="primary" onclick="startExplain('${childId}')">Explain another 🔍</button>
+    <button class="ghost" onclick="screenHome('${childId}')">Home ⭐</button></div></div>`;
+}
+
 /* ---------- Tools sheet (all pedagogy tools, one place) ---------- */
 function openTools() {
   const it = SES.item;
@@ -4409,6 +4489,7 @@ const COST_PER_MTOK = {
   gemini: { in: 0.30, out: 2.50 },
   anthropic: { in: 1.00, out: 5.00 },
   openai: { in: 0.50, out: 1.50 },
+  proxy: { in: 0, out: 0 }, // server proxy → Gemini free tier: ~$0 at pilot volume
 };
 function estTokens(text) { return Math.ceil((text || "").length / 4); } // ~4 chars/token
 /* Accumulate estimated cost-to-serve per family, so the pilot MEASURES the ≤$1.50/family/mo
@@ -4452,6 +4533,15 @@ async function callRemoteRaw(sysPrompt, userText, child) {
       });
       const j = await resp.json();
       out = j?.content?.[0]?.text;
+    } else if (st.provider === "proxy") {
+      /* SparkIQ server proxy (Supabase Edge Function). The API key lives ON THE SERVER, never
+         here — so this is the only child-safe way to ship AI without a key in the client. */
+      const resp = await fetch(st.endpoint, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ system: sysPrompt, user: userText }),
+      });
+      const j = await resp.json();
+      out = j?.text || j?.reply || j?.output;
     } else {
       const resp = await fetch(st.endpoint, {
         method: "POST",
@@ -4656,13 +4746,14 @@ function parentTab(tab) {
       <label>Engine</label><select id="ai-engine"><option value="local" ${st.engine === "local" ? "selected" : ""}>Built-in (offline, free, default)</option>
       <option value="remote" ${st.engine === "remote" ? "selected" : ""}>Remote LLM (parent-supplied key)</option></select>
       <div id="ai-remote" style="display:${st.engine === "remote" ? "block" : "none"}">
-        <label>Provider</label><select id="ai-provider"><option value="anthropic" ${st.provider === "anthropic" ? "selected" : ""}>Anthropic (Claude)</option>
+        <label>Provider</label><select id="ai-provider"><option value="proxy" ${st.provider === "proxy" ? "selected" : ""}>SparkIQ server (free · Gemini via your Supabase · no key here) ⭐</option>
         <option value="gemini" ${st.provider === "gemini" ? "selected" : ""}>Google Gemini (free key from aistudio.google.com)</option>
+        <option value="anthropic" ${st.provider === "anthropic" ? "selected" : ""}>Anthropic (Claude)</option>
         <option value="openai" ${st.provider === "openai" ? "selected" : ""}>OpenAI-compatible endpoint</option></select>
-        <label>Endpoint <span class="hint">(blank = provider default)</span></label><input id="ai-endpoint" value="${esc(st.endpoint)}" placeholder="https://…">
-        <label>Model <span class="hint">(blank = sensible default)</span></label><input id="ai-model" value="${esc(st.model)}" placeholder="e.g. claude-haiku-4-5-20251001">
-        <label>API key</label><input id="ai-key" type="password" value="${esc(st.key)}" placeholder="sk-…">
-        <p class="dim"><small>⚠️ Keys in a browser app are visible to anyone with device access. Use a low-limit key. The production build moves all calls server-side.</small></p>
+        <label>Endpoint <span class="hint">${st.provider === "proxy" ? "(your Edge Function URL)" : "(blank = provider default)"}</span></label><input id="ai-endpoint" value="${esc(st.endpoint)}" placeholder="${st.provider === "proxy" ? "https://xxxx.functions.supabase.co/explain" : "https://…"}">
+        <label>Model <span class="hint">(blank = sensible default)</span></label><input id="ai-model" value="${esc(st.model)}" placeholder="e.g. gemini-2.5-flash">
+        <label>API key <span class="hint">${st.provider === "proxy" ? "(not needed — the server holds it)" : ""}</span></label><input id="ai-key" type="password" value="${esc(st.key)}" placeholder="${st.provider === "proxy" ? "leave blank" : "sk-…"}">
+        <p class="dim"><small>⭐ <b>Recommended:</b> the <b>SparkIQ server</b> option keeps the AI key on your Supabase server, never in this browser — the child-safe way to ship AI. Set it up with <code>backend/functions/explain</code> (see <code>backend/SETUP.md</code>). The direct-key options work today but ⚠️ a key in the browser is visible to anyone with device access — use a low-limit key.</small></p>
       </div>
       <div class="actions"><button class="primary" id="ai-save">Save</button>
       <button class="ghost" onclick="modal('<h2>Tutor system prompt</h2><pre style=\\'white-space:pre-wrap;font-size:.8em\\'>'+TUTOR_SYSTEM_PROMPT.replace(/</g,'&lt;')+'</pre>')">View system prompt</button></div></div>`;

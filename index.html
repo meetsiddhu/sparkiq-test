@@ -326,6 +326,7 @@ ul.clean { list-style: none; } ul.clean li { padding: 6px 0; border-bottom: 1px 
 /* ---------- Kid progress bars ---------- */
 .pbar { height: 12px; border-radius: 999px; background: rgba(255,255,255,.10); overflow: hidden; margin-top: 8px; }
 .pfill { height: 100%; border-radius: 999px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
+.chip.on { background: var(--accent-2); color: #fff; font-weight: 700; }
 
 </style>
 </head>
@@ -1829,7 +1830,7 @@ const Engine = {
       strongVerbs ? `Strong word choices — precise verbs make writing vivid.`
       : `Reach for sharper words: swap "good/said/big" for "convincing/argued/enormous".`);
 
-    // 6. Punctuation & spelling (surface, honest heuristic)
+    // 6. Punctuation
     const capStarts = sentences.filter(s => /^[A-Z"]/.test(s)).length;
     const capOk = sentences.length ? capStarts / sentences.length >= 0.8 : true;
     const endMarks = (t.match(/[.!?]/g) || []).length;
@@ -1837,6 +1838,13 @@ const Engine = {
       !capOk ? `Start every sentence with a capital letter.`
       : endMarks < 2 ? `End each sentence with a . ! or ?`
       : `Capitals and end marks look solid.`);
+
+    // 7. Spelling — checks the most commonly-misspelled words (honest, not a full dictionary).
+    const MISSPELL = { "alot": "a lot", "becuase": "because", "definately": "definitely", "seperate": "separate", "recieve": "receive", "untill": "until", "thier": "their", "wich": "which", "teh": "the", "freind": "friend", "beleive": "believe", "occured": "occurred", "enviroment": "environment", "goverment": "government", "tommorow": "tomorrow", "truely": "truly", "arguement": "argument", "wierd": "weird", "acheive": "achieve", "embarass": "embarrass" };
+    const found = [...new Set(words.map(w => w.toLowerCase().replace(/[^a-z]/g, "")).filter(w => MISSPELL[w]))];
+    rate("Spelling", found.length === 0 ? 3 : found.length <= 2 ? 2 : 1,
+      found.length ? `Check these: ${found.slice(0, 3).map(w => `"${w}" → "${MISSPELL[w]}"`).join(", ")}.`
+      : `No common misspellings spotted — nicely proofread.`);
 
     // 7. Audience & persuasion / voice
     const persuasive = /(i (think|believe|argue)|should|must|clearly|surely|imagine|what if|everyone|% |percent|research)/i.test(t);
@@ -2484,8 +2492,18 @@ function screenProgress(childId) {
       </div></div>
     <div class="card" style="padding:10px 16px"><b>Your subjects</b> <small class="dim">— watch these bars grow!</small></div>
     ${subjectCards}
-    ${badges.length ? `<div class="card"><h3>🏅 Badges you've earned</h3><div class="row" style="flex-wrap:wrap;gap:6px">${badges.map(b => `<span class="tag">🏅 ${esc(b)}</span>`).join("")}</div></div>` : ""}`);
+    ${badges.length ? `<div class="card"><h3>🏅 Badges you've earned</h3><div class="row" style="flex-wrap:wrap;gap:6px">${badges.map(b => `<span class="tag">🏅 ${esc(b)}</span>`).join("")}</div></div>` : ""}
+    <div class="card"><h3>⚙️ My settings</h3>
+      <div style="margin-top:6px"><small class="dim">Daily Spark size</small><div class="row" style="gap:6px;margin-top:4px">
+        ${[3, 4, 5, 8].map(n => `<button class="chip ${(c.dailyGoal || 4) === n ? "on" : ""}" onclick="setDailyGoal('${childId}',${n})">${n} questions</button>`).join("")}</div></div>
+      <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="small ${c.focus ? "primary" : "ghost"}" onclick="kidToggleFocus('${childId}')">🎯 Focus mode: ${c.focus ? "on" : "off"}</button>
+        <button class="small ${c.sound === false ? "ghost" : "primary"}" onclick="kidToggleSound('${childId}')">🔊 Sound: ${c.sound === false ? "off" : "on"}</button></div>
+      <p class="dim" style="margin-top:6px"><small>Focus mode makes it calmer and quieter — good if you're older or want fewer celebrations.</small></p></div>`);
 }
+function setDailyGoal(childId, n) { const c = S.children.find(x => x.id === childId); if (!c) return; c.dailyGoal = n; save(); screenProgress(childId); }
+function kidToggleFocus(childId) { const c = S.children.find(x => x.id === childId); if (!c) return; c.focus = !c.focus; save(); screenProgress(childId); }
+function kidToggleSound(childId) { const c = S.children.find(x => x.id === childId); if (!c) return; c.sound = c.sound === false ? true : false; save(); screenProgress(childId); }
 function screenHome(childId) {
   const c = S.children.find(x => x.id === childId);
   if (!c) return screenProfiles();
@@ -3753,7 +3771,7 @@ function startDailySpark(childId) {
   const c = S.children.find(x => x.id === childId); if (!c) return screenProfiles();
   SES = examSessionShell(childId, c, "daily");
   SES.band = bandOf(c.year);
-  SES.dailyQ = 0; SES.dailyTarget = 4; SES.dailyCorrect = 0; SES.dailySubs = dailySubjects(childId);
+  SES.dailyQ = 0; SES.dailyTarget = c.dailyGoal || 4; SES.dailyCorrect = 0; SES.dailySubs = dailySubjects(childId);
   renderSessionShell(c, "🌟 Daily Spark");
   const intro = dailyState(childId).intention
     ? `🌟 Daily Spark, ${esc(c.nickname)}! Last time you wanted to ${esc(dailyState(childId).intention)} — nice. Four quick ones, a wonder, and a brain tip. Let's go!`

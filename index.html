@@ -292,6 +292,13 @@ ul.clean { list-style: none; } ul.clean li { padding: 6px 0; border-bottom: 1px 
 .shop-item button[disabled] { opacity: .5; }
 .msgs { position: relative; }
 
+/* ---------- Coach Team ---------- */
+.coach-banner { background: linear-gradient(100deg, rgba(255,209,102,.10), rgba(143,155,255,.10), rgba(124,227,139,.10)); }
+.coach-faces { font-size: 1.4em; white-space: nowrap; }
+.coach-card { border-width: 2px; }
+.coach-head { display: flex; align-items: center; gap: 12px; }
+.coach-emoji { font-size: 2.2em; line-height: 1; filter: drop-shadow(0 0 10px var(--pcol)); }
+
 </style>
 </head>
 <body>
@@ -1764,6 +1771,62 @@ const OFFICIAL_PAPERS = [
 ];
 function paperById(id) { return PAPERS.find(p => p.id === id); }
 
+/* ============================================================
+   COACH TEAM — the kid meets three expert coaches who power the app's
+   teaching. All three are Spark under the hood (same safety rules); they
+   put an expert "face" on pedagogy that already exists:
+     • Master Teacher  → intuition-first concept teaching + real-world examples (TEACH cards)
+     • Communication Coach → explain-it-back (Feynman) + Speak & Shine
+     • Mind Coach → LEARNING psychology only (growth mindset, memory, nerves).
+   SAFETY: the Mind Coach coaches study/mindset skills, never emotional
+   counselling — real distress still routes to a trusted adult + Kids Helpline.
+   ============================================================ */
+const COACHES = [
+  { id: "teacher", name: "Ms Ada", emoji: "👩‍🏫", color: "#ffd166", role: "Master Teacher",
+    tag: "Concepts that click",
+    intro: "I teach the BIG IDEA first — with a picture in your head and a real-life example — so things actually make sense instead of just being memorised. Understand the why, and the how is easy.",
+    cta: "Teach me a concept" },
+  { id: "comms", name: "Coach Rio", emoji: "🎤", color: "#8f9bff", role: "Communication Coach",
+    tag: "Say it clearly & boldly",
+    intro: "The best way to truly KNOW something is to explain it out loud. I'll help you turn your ideas into clear, confident words — the superpower behind every great presentation, debate and interview.",
+    cta: "Practise explaining" },
+  { id: "mind", name: "Coach Sky", emoji: "🧠", color: "#7ce38b", role: "Mind Coach",
+    tag: "Learn how to learn",
+    intro: "I coach the hidden skills behind learning — a growth mindset, beating the wobbles before a test, and how your brain actually makes memories stick. Mistakes aren't failures; they're your brain growing!",
+    safety: "I help with learning and confidence. If something bigger is worrying you, the bravest move is telling a trusted grown-up — and Kids Helpline is always there on 1800 55 1800.",
+    cta: "Train my brain" },
+];
+function coachById(id) { return COACHES.find(c => c.id === id) || COACHES[0]; }
+
+/* Mind Coach micro-lessons — LEARNING psychology, each with a sticky real-world example
+   and a short reflective prompt. Evidence-based (growth mindset, spacing, retrieval, sleep). */
+const MINDSET = [
+  { id: "yet", emoji: "🌱", title: "The power of 'yet'",
+    lesson: `Your brain is a muscle — it grows every time you struggle a little. So "I can't do this" is only ever missing one word: "I can't do this… YET." That tiny word turns a locked door into a path.`,
+    real: `Every skateboarder who lands a trick fell dozens of times first. They weren't "bad at it" — they were at "not yet".`,
+    prompt: `Tell me one thing you can't do YET — but are getting closer to.` },
+  { id: "mistakes", emoji: "💡", title: "Mistakes grow your brain",
+    lesson: `Scientists can actually see the brain spark MORE when you get something wrong and then figure out why. A mistake isn't a failure — it's a signpost pointing at exactly what to practise next.`,
+    real: `Every video game teaches this: you "die", you learn the trap, you get further next time. Learning works the same way.`,
+    prompt: `What's a mistake you made recently that taught you something useful?` },
+  { id: "spacing", emoji: "📆", title: "Little and often wins",
+    lesson: `Studying 20 minutes on five days beats one big three-hour cram — by a lot. Your brain needs GAPS to lock a memory in, like letting glue dry between coats.`,
+    real: `It's how you learned to walk and talk: a little every day, not one giant lesson. Spacing is the brain's favourite way to learn.`,
+    prompt: `When could you fit in a short, calm practice this week?` },
+  { id: "retrieval", emoji: "🧲", title: "Test yourself to remember",
+    lesson: `Re-reading notes feels productive but fades fast. PULLING an answer out of your memory (even when it's hard) is what makes it stick. The struggle IS the learning.`,
+    real: `It's why flashcards and quizzes work — and why explaining something to a friend locks it in better than reading it ten times.`,
+    prompt: `Pick something you learned today — can you say it from memory, without looking?` },
+  { id: "nerves", emoji: "🫁", title: "Beat the wobbles",
+    lesson: `Butterflies before a test are just your body getting READY — the same feeling athletes get before a race. Slow breaths (out longer than in) tell your body "we're okay", and doing one easy question first builds momentum.`,
+    real: `Pilots and surgeons are trained to breathe slowly under pressure. Calm isn't the absence of nerves — it's what you DO with them.`,
+    prompt: `What's one calm, kind thing you could say to yourself before a big test?` },
+  { id: "sleep", emoji: "😴", title: "Sleep is secret study",
+    lesson: `While you sleep, your brain replays the day and files your learning into long-term memory. Skipping sleep to cram is like taking photos and deleting them before they save.`,
+    real: `Musicians often play a tricky piece BETTER the next morning without extra practice — their sleeping brain rehearsed it for them.`,
+    prompt: `What's one thing that helps you wind down for a good night's sleep?` },
+];
+
 /* Continuity greeting lines */
 const GREETINGS = {
   returning: (name, summary) => pick([`Welcome back, ${name}! ⭐ ${summary}`, `${name}! Good to see you. ${summary}`, `Hey ${name} 🌟 ${summary}`]),
@@ -2152,6 +2215,10 @@ function screenHome(childId) {
       </span>
     </div>
     <div class="card" style="padding:16px 20px"><p>${esc(greet)}</p></div>
+    <div class="card tile-pop coach-banner" style="cursor:pointer" onclick="screenCoaches('${childId}')">
+      <div class="row spread"><div><b>🧑‍🏫 Coach Corner</b><br>
+      <small class="dim">Your expert team: a Master Teacher, a Communication Coach &amp; a Mind Coach.</small></div>
+      <span class="coach-faces">👩‍🏫🎤🧠 →</span></div></div>
     ${lastSub ? `<div class="card" style="border-color:var(--accent);cursor:pointer" onclick="startSession('${childId}','${lastSub.id}')">
       <div class="row spread"><div><b>${lastSub.glyph} Jump back into ${lastSub.name}</b><br>
       <small class="dim">${lastLv && lastLv.diag === "done" ? `Level ${lastLv.level}${lastLv.challenge ? " · 🚀 working ahead" : ""} — pick up where you left off` : "Pick up where you left off"}</small></div>
@@ -2464,7 +2531,10 @@ function presentItem(item, isRepeat) {
       if (!t[key] || wantsReteach) {
         t[key] = Date.now(); if (wantsReteach) SES._reTaught = true;
         save();
-        say(TEACH[key], "New idea — here's the intuition first");
+        // Master Teacher presents the concept intuition-first, and every concept lands with a
+        // real-world example so it sticks (the ask: "explain concepts with real-world examples").
+        const rw = item.real ? `\n\n🌏 Real life: ${item.real}` : "";
+        say(TEACH[key] + rw, "👩‍🏫 Ms Ada, your teacher — the big idea first");
       }
     }
   }
@@ -2493,6 +2563,7 @@ function handleAnswer(value, isTyped) {
   if (!gateTurn(isTyped ? value : "option")) return;
   if (SES.mode === "explore") return exploreReply(value);
   if (SES.mode === "feynman") return feynmanReply(value);
+  if (SES.mode === "mind") return mindReply(value);
   if (SES.mode === "writing") return writingReply(value);
   if (SES.mode === "speak") return speakReply(value);
   const it = SES.item; if (!it) return;
@@ -3214,9 +3285,78 @@ function startFeynman() {
 function feynmanReply(text) {
   const r = Engine.evalExplanation(text, SES.item);
   say(r.fb);
-  if (r.ok) { addXp(CONFIG.xpCorrect); confetti();
+  if (r.ok) { addXp(CONFIG.xpCorrect); addGems(SES.childId, GEMS.milestone); confetti();
     setActions([["Next question 🚀", () => { SES.mode = "learn"; nextLearn(); }], ["Finish ⭐", () => endSession()]]);
   }
+}
+/* ---------- COACH TEAM: the kid meets three expert coaches who power the teaching. ---------- */
+function screenCoaches(childId) {
+  const c = S.children.find(x => x.id === childId);
+  if (!c) return screenProfiles();
+  applyTheme(c);
+  const cards = COACHES.map(co => `<div class="card coach-card tile-pop" style="border-color:${co.color}">
+      <div class="coach-head"><span class="coach-emoji" style="--pcol:${co.color}">${co.emoji}</span>
+        <div><b>${co.name}</b> <span class="tag">${co.role}</span><div class="dim"><small>${co.tag}</small></div></div></div>
+      <p class="dim" style="margin:8px 0">${co.intro}</p>
+      ${co.safety ? `<p class="dim" style="margin:6px 0"><small>🛟 ${co.safety}</small></p>` : ""}
+      <button class="primary" onclick="startCoach('${childId}','${co.id}')">${co.cta} →</button>
+    </div>`).join("");
+  render(`
+    <div class="topbar"><button class="ghost small" onclick="screenHome('${childId}')">← Home</button>
+      <span class="chip">🧑‍🏫 Coach Corner</span></div>
+    <div class="card"><h2>🧑‍🏫 Meet your Coach Team</h2>
+      <p class="dim">Three experts in your pocket: a <b>Master Teacher</b> who makes concepts click, a <b>Communication Coach</b> who helps you explain your ideas out loud, and a <b>Mind Coach</b> who trains the skills behind great learning. Tap a coach to start.</p></div>
+    ${cards}`);
+}
+function startCoach(childId, coachId) {
+  if (coachId === "teacher") return coachTeacher(childId);
+  if (coachId === "comms") return startSpeak(childId);   // Communication Coach = Speak & Shine
+  if (coachId === "mind") return startMindCoach(childId);
+}
+/* Master Teacher: choose a subject, then a concept-first learning session. */
+function coachTeacher(childId) {
+  const c = S.children.find(x => x.id === childId);
+  if (!c) return screenProfiles();
+  const subs = SUBJECTS.filter(s => s.id !== "explore");
+  render(`
+    <div class="topbar"><button class="ghost small" onclick="screenCoaches('${childId}')">← Coaches</button>
+      <span class="chip">👩‍🏫 Ms Ada</span></div>
+    <div class="card"><h2>👩‍🏫 Which concept shall we crack?</h2>
+      <p class="dim">Pick a subject and I'll teach the big idea first — with a real-life example — then we'll try it together.</p>
+      <div class="subject-grid" style="margin-top:10px">
+      ${subs.map(s => `<div class="star-card lit tile-pop" onclick="startSession('${childId}','${s.id}')">
+        <span class="glyph">${s.glyph}</span><span class="name">${s.name}</span>
+        <div class="lvl">Teach me</div></div>`).join("")}</div></div>`);
+}
+/* Mind Coach: a short learning-psychology micro-lesson + a reflective prompt. */
+function startMindCoach(childId) {
+  const c = S.children.find(x => x.id === childId);
+  if (!c) return screenProfiles();
+  SES = examSessionShell(childId, c, "mind");
+  SES.mindSeen = [];
+  renderSessionShell(c, "🧠 Coach Sky");
+  say(`🧠 Hi ${esc(c.nickname)}, I'm Coach Sky — your Mind Coach. I train the hidden skills that make learning easier and less stressful. Ready for a quick brain-boost?`,
+    "Learning & confidence coaching — big worries go to a trusted grown-up (Kids Helpline 1800 55 1800)");
+  setActions([]); setOpts([]); showInput(false);
+  setTimeout(() => nextMindLesson(), 900);
+}
+function nextMindLesson() {
+  const pool = MINDSET.filter(m => !SES.mindSeen.includes(m.id));
+  const m = (pool.length ? pool : MINDSET)[Math.floor(Math.random() * (pool.length ? pool.length : MINDSET.length))];
+  SES.mindSeen.push(m.id); SES.mindItem = m;
+  say(`${m.emoji} ${m.title}\n\n${m.lesson}\n\n🌏 Real life: ${m.real}`, "Coach Sky — a brain skill");
+  setTimeout(() => { say(`💬 ${m.prompt}`); showInput(true); setOpts([]); const el = document.getElementById("kidin"); if (el) el.focus(); }, 700);
+  setActions([["Another tip 🧠", () => nextMindLesson()], ["Home ⭐", () => endSession()]]);
+}
+function mindReply(text) {
+  say(pick([
+    `🌟 Love that — thank you for sharing. That's exactly the kind of thinking that grows a strong learner.`,
+    `💚 That's a brilliant reflection. Noticing how you learn is a superpower most grown-ups are still working on!`,
+    `✨ Beautifully said. Coaches call that "self-awareness" — and it's how the best learners keep getting better.`,
+  ]));
+  addGems(SES.childId, GEMS.correct); gemFloat();
+  setActions([["Another tip 🧠", () => nextMindLesson()], ["Home ⭐", () => endSession()]]);
+  showInput(false);
 }
 
 /* ---------- Homework help (paper solve) ---------- */

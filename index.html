@@ -580,10 +580,12 @@ const MATH_SKILLS = [
         real: `Functions are machines: projectile height, interest, battery drain.`, trick: `A function is a vending machine: same input, same output.` };
   }},
   { id: "diff4", band: 4, name: "Differentiation", gen() {
-      const a = ri(2, 6), n = ri(2, 4);
-      return { q: `Differentiate y = ${a}x^${n}. Give dy/dx like ${a * n}x^${n - 1}.`, answer: `${a * n}x^${n - 1}`, check: v => normAns(v).replace(/\s|\*/g, "") === `${a*n}x^${n-1}`.replace("x^1", "x"),
-        hints: [`Power rule: bring the power down, reduce power by 1.`, `${n}×${a} = ${n*a} out front; new power ${n-1}.`],
-        worked: `dy/dx = ${a*n}x^${n-1}.`,
+      const a = ri(2, 6), n = ri(2, 4); const coef = a * n, pow = n - 1;
+      const ansStr = pow === 1 ? `${coef}x` : `${coef}x^${pow}`; // standard notation (6x, not 6x^1)
+      const norm = s => normAns(s).replace(/\s|\*/g, "").replace(/x\^1$/, "x");
+      return { q: `Differentiate y = ${a}x^${n}. Give dy/dx like ${ansStr}.`, answer: ansStr, check: v => norm(v) === ansStr,
+        hints: [`Power rule: bring the power down, reduce power by 1.`, `${n}×${a} = ${n*a} out front; new power ${pow}.`],
+        worked: `dy/dx = ${ansStr}.`,
         real: `Speed is the derivative of position — your speedo does calculus.`, trick: `Power JUMPS to the front, then STEPS back by one.` };
   }},
   { id: "log4", band: 4, name: "Logarithms", gen() {
@@ -603,11 +605,15 @@ const MATH_SKILLS = [
         real: `Exactly the maths you do at the shop counter.`, trick: `Count up from the price to what you handed over.` };
   }},
   { id: "avg1", band: 1, name: "Averages (mean)", gen() {
-      const n = ri(3, 5); const nums = Array.from({length:n}, () => ri(2, 20)); const sum = nums.reduce((a,b)=>a+b,0);
-      const avg = sum / n; const nice = Number.isInteger(avg) ? avg : Math.round(avg*10)/10;
-      return { q: `Find the average (mean) of ${nums.join(", ")}.`, answer: String(nice), check: v => numEq(v, avg),
+      // Build numbers that ALWAYS have a whole-number mean (no rounding trap).
+      const n = ri(3, 5); const avg = ri(4, 14);
+      const nums = Array.from({ length: n }, () => ri(2, 20));
+      nums[n - 1] = avg * n - nums.slice(0, n - 1).reduce((a, b) => a + b, 0);
+      if (nums[n - 1] < 1 || nums[n - 1] > 30) for (let i = 0; i < n; i++) nums[i] = avg; // safe fallback
+      const sum = nums.reduce((a, b) => a + b, 0); const mean = sum / n;
+      return { q: `Find the average (mean) of ${shuffle(nums).join(", ")}.`, answer: String(mean), check: v => numEq(v, mean),
         hints: [`Add them all up, then divide by how many there are.`, `Sum is ${sum}; there are ${n} numbers.`],
-        worked: `${sum} ÷ ${n} = ${nice}.`,
+        worked: `${sum} ÷ ${n} = ${mean}.`,
         real: `Averages are how test scores, cricket runs and weather are summarised.`, trick: `Mean = total shared equally: add, then divide by the count.` };
   }},
   { id: "time1", band: 1, name: "Time & duration", gen() {
@@ -675,7 +681,8 @@ const THINKING_SKILLS = [
     const opts = conclusion
       ? [`Some animals are fast`, `All animals are ${a}`, `No animals are slow`, `All fast things are ${a}`]
       : [`We can't be sure any ${a} are fast`, `Some ${a} are fast`, `All ${a} are fast`, `No ${a} are fast`];
-    return { skillName:"Logical deduction", q, opts, answer: opts[0], check: v => Number(v) === 0,
+    const correct = opts[0]; const shown = shuffle(opts); const ai = shown.indexOf(correct); // don't always put the answer at A
+    return { skillName:"Logical deduction", q, opts: shown, answer: correct, check: v => Number(v) === ai,
       hints:[`"Must be true" means true in EVERY possible case.`, `Careful: "some animals are fast" doesn't tell us WHICH animals.`],
       worked: conclusion ? `Fast ${a} are animals, so some animals are fast — guaranteed. The others could be false.` : `The fast animals might all be other species — we can't conclude anything about ${a}.`,
       real:`Exactly how Selective tests deductive validity — the #1 thinking-skills question type.`, trick:`"Must be true" = no imaginable world where it's false. Try to invent a counter-example!` }; }},
@@ -1588,10 +1595,11 @@ const Engine = {
         : (v) => {
             const nv = normAns(v), na = normAns(item.a);
             if (nv === na) return true;
-            // Lenient match ONLY for non-numeric text answers, and only as a WHOLE WORD
-            // (so "the mitochondria" is accepted, but "600" is NOT accepted for "60",
-            //  and "tired" is NOT accepted for "red"). Numeric answers are exact-only.
-            if (typeof item.a !== "string" || na === "" || !isNaN(Number(na))) return false;
+            // Numeric answers: accept the number even with units ("60 km/h" → 60), but
+            // "600" is still NOT accepted for "60" (numEq compares the value, not substring).
+            if (na !== "" && !isNaN(Number(na))) return numEq(v, Number(na));
+            // Non-numeric text: lenient WHOLE-WORD match ("the mitochondria" ok, "tired" ≠ "red").
+            if (typeof item.a !== "string" || na === "") return false;
             const esc = na.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
             return new RegExp("(^|\\s)" + esc + "(\\s|$)").test(nv);
           },
@@ -1851,6 +1859,7 @@ function blankState() {
     meter: { date: "", turns: {} },
     settings: { engine: "local", provider: "anthropic", endpoint: "", key: "", model: "" },
     freeSubject: {},
+    custom: [], // teacher/tutor-authored exercises (parent-PIN-gated to add)
   };
 }
 let S = load();
@@ -2209,7 +2218,7 @@ function screenHome(childId) {
     <div class="topbar">
       <button class="ghost small" onclick="screenProfiles()">${avatarWithSticker(c)} ${esc(c.nickname)} ▾</button>
       <span class="row">
-        ${wk.days > 1 ? `<span class="chip">🔥 ${wk.days} days this week</span>` : ""}
+        ${wk.days > 1 ? `<span class="chip">🌱 ${wk.days} learning days this week</span>` : ""}
         <span class="chip xp">⭐ ${Object.values(S.levels[childId]||{}).reduce((t,l)=>t+l.xp,0)} XP</span>
         <span class="chip gem" id="gemchip" onclick="screenShop('${childId}')" style="cursor:pointer">💎 ${gemsOf(childId)}</span>
       </span>
@@ -2259,6 +2268,8 @@ function screenHome(childId) {
         <div><b>📝 Homework help</b><br><small class="dim">Stuck on a question? I'll explain it, step by step.</small></div></div>
       <div class="card tile-pop" style="cursor:pointer;margin:14px 0 0;border-color:var(--accent)" onclick="screenShop('${childId}')">
         <div><b>💎 Spark Shop</b><br><small class="dim">Spend gems you earned on themes, stickers &amp; buddies. You have 💎 ${gemsOf(childId)}.</small></div></div>
+      ${customFor(childId).length ? `<div class="card tile-pop" style="cursor:pointer;margin:14px 0 0;border-color:var(--good)" onclick="startCustomSession('${childId}')">
+        <div><b>📓 Teacher's exercises</b><br><small class="dim">${customFor(childId).length} exercise${customFor(childId).length>1?"s":""} set just for you by your teacher.</small></div></div>` : ""}
     </div>
     <p class="footer-note">SparkIQ nudges you to take breaks — learning sticks best with rest. 🌙</p>`);
 }
@@ -2576,6 +2587,7 @@ function handleAnswer(value, isTyped) {
   if (SES.mode === "review") { SES.answered = true; return recordReview(correct); }
   if (SES.mode === "exam") return recordExam(correct, false);
   if (SES.mode === "selmock") return recordMock(correct);
+  if (SES.mode === "custom") return recordCustom(correct);
   if (SES.mode === "selective") return recordSelective(correct);
   /* learn / challenge */
   bumpStat(it.skillId, correct);
@@ -3360,6 +3372,100 @@ function mindReply(text) {
   showInput(false);
 }
 
+/* ---------- Teacher / tutor custom exercises (authoring is PIN-gated in the parent area) ---------- */
+function _cxv(id) { const el = document.getElementById(id); return el ? String(el.value || "") : ""; }
+function toggleCxType() {
+  const t = _cxv("cx-type");
+  const mc = document.getElementById("cx-mc"), sh = document.getElementById("cx-short");
+  if (mc) mc.style.display = t === "mc" ? "" : "none";
+  if (sh) sh.style.display = t === "short" ? "" : "none";
+}
+function addCustomExercise() {
+  const q = _cxv("cx-q").trim();
+  if (!q) { alert("Please type a question."); return; }
+  const rec = { id: uuid(), subject: _cxv("cx-subject"), band: _cxv("cx-band") === "" ? null : Number(_cxv("cx-band")), q };
+  if (_cxv("cx-type") === "mc") {
+    const raw = [0, 1, 2, 3].map(i => _cxv("cx-opt" + i).trim());
+    const opts = raw.filter(Boolean);
+    if (opts.length < 2) { alert("Add at least two options."); return; }
+    const correctRaw = Number((document.querySelector("input[name=cx-correct]:checked") || {}).value || 0);
+    const chosen = raw[correctRaw];
+    if (!chosen) { alert("Tick a correct option that actually has text."); return; }
+    rec.opts = opts; rec.a = opts.indexOf(chosen);
+  } else {
+    const ans = _cxv("cx-ans").trim();
+    if (!ans) { alert("Enter the correct answer."); return; }
+    rec.a = ans;
+  }
+  const hint = _cxv("cx-hint").trim(); if (hint) rec.hint = hint;
+  const worked = _cxv("cx-worked").trim(); if (worked) rec.worked = worked;
+  S.custom = S.custom || []; S.custom.push(rec); save();
+  screenParent("teach");
+}
+function deleteCustom(id) {
+  S.custom = (S.custom || []).filter(x => x.id !== id); save();
+  screenParent("teach");
+}
+function customToItem(rec) {
+  const hasOpts = rec.opts && rec.opts.length >= 2;
+  return {
+    skillId: "custom:" + rec.id, skillName: "Teacher's exercise",
+    q: rec.q, opts: hasOpts ? rec.opts : undefined,
+    answer: hasOpts ? rec.opts[rec.a] : String(rec.a),
+    check: hasOpts ? (v => Number(v) === rec.a) : (v => normAns(v) === normAns(rec.a)),
+    hints: rec.hint ? [rec.hint] : ["Have a go — take your best try!"],
+    worked: rec.worked || (hasOpts ? `The answer is "${rec.opts[rec.a]}".` : `The answer is "${rec.a}".`),
+  };
+}
+function customFor(childId) {
+  const c = S.children.find(x => x.id === childId); if (!c) return [];
+  return (S.custom || []).filter(x => subjectAllowed(childId, x.subject));
+}
+function startCustomSession(childId) {
+  const c = S.children.find(x => x.id === childId); if (!c) return screenProfiles();
+  const items = shuffle(customFor(childId));
+  if (!items.length) { screenHome(childId); return; }
+  SES = examSessionShell(childId, c, "custom");
+  SES.customQueue = items; SES.customIdx = 0; SES.customCount = 0; SES.customCorrect = 0;
+  renderSessionShell(c, "📓 Teacher's exercises");
+  say(`📓 Your teacher set these just for you, ${esc(c.nickname)}! Let's give them a go — I'll help if you get stuck. Ready?`, "Set by your parent/teacher");
+  setTimeout(nextCustom, 800);
+}
+function nextCustom() {
+  if (SES.customIdx >= SES.customQueue.length) return finishCustom();
+  const rec = SES.customQueue[SES.customIdx++];
+  SES.customCount++;
+  presentItem(customToItem(rec));
+}
+function recordCustom(correct) {
+  if (SES.answered) return;
+  bumpStat(SES.item.skillId, correct);
+  if (correct) {
+    SES.answered = true; SES.customCorrect++;
+    say(GREETINGS.celebrate()); addXp(CONFIG.xpCorrect);
+    setTimeout(nextCustom, 900);
+  } else {
+    SES.attempts++;
+    if (SES.attempts >= 2) {
+      SES.answered = true;
+      say(`Good try! Here's how it works:\n\n${SES.item.worked}`);
+      setTimeout(nextCustom, 1600);
+    } else {
+      addXp(CONFIG.xpAttempt);
+      say(GREETINGS.encourage() + " " + SES.item.hints[0]);
+      if (SES.item.opts) setOpts(SES.item.opts);
+    }
+  }
+}
+function finishCustom() {
+  const cid = SES.childId, n = SES.customCount, ok = SES.customCorrect;
+  if (n && ok / n >= 0.7) { confetti(); awardBadge(cid, "Teacher's Star"); }
+  addGems(cid, GEMS.sessionFinish);
+  say(`📓 All done — ${ok}/${n} on your teacher's exercises! 💎 +${GEMS.sessionFinish}. ${ok === n ? "Perfect set — brilliant work!" : "Nice effort — the tricky ones are how we grow."}`);
+  setOpts([]); showInput(false);
+  setActions([["Again 📓", () => startCustomSession(cid)], ["Home ⭐", () => { endSessionSilently(); screenHome(cid); }]]);
+}
+
 /* ---------- Homework help (paper solve) ---------- */
 function startPaperSolve(childId) {
   const c = S.children.find(x => x.id === childId);
@@ -3535,7 +3641,7 @@ function kidRate(childId, subject, mood) {
   if (mood === "loved") {
     reasonEl.innerHTML = `<p class="dim" style="margin-top:8px">Yay! What did you like most?</p>
       <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin-top:6px">
-        ${["It was fun", "Just right", "My buddy 🚀", "Felt smart"].map(r => `<button class="chip" onclick="kidReason('${childId}','${subject}','loved:${r.replace(/[^a-z ]/gi,"")}')">${r}</button>`).join("")}</div>`;
+        ${["It was fun", "Just right", "My buddy 🚀", "Figured it out"].map(r => `<button class="chip" onclick="kidReason('${childId}','${subject}','loved:${r.replace(/[^a-z ]/gi,"")}')">${r}</button>`).join("")}</div>`;
   } else {
     reasonEl.innerHTML = `<p class="dim" style="margin-top:8px">No worries — what would make it better?</p>
       <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin-top:6px">
@@ -3876,7 +3982,7 @@ function parentGate() {
 }
 function screenParent(tab) {
   document.documentElement.classList.remove("young");
-  const tabs = [["overview","📊 Overview"],["children","👧 Children"],["feedback","💬 Feedback"],["safety","🛡 Safety"],["privacy","🔏 Privacy"],["plan","💳 Plan"],["ai","🤖 AI"],["data","💾 Data"]];
+  const tabs = [["overview","📊 Overview"],["children","👧 Children"],["teach","📓 Teacher tools"],["feedback","💬 Feedback"],["safety","🛡 Safety"],["privacy","🔏 Privacy"],["plan","💳 Plan"],["ai","🤖 AI"],["data","💾 Data"]];
   render(`
     <div class="topbar"><span class="brand">Spark<span class="iq">IQ</span> <small class="dim">Parents</small></span>
       <button class="ghost small" onclick="screenProfiles()">✕ Exit</button></div>
@@ -3983,6 +4089,44 @@ function parentTab(tab) {
       </div>`).join("")}</div>
       <p class="dim" style="margin-top:12px"><small><b>Pilot note:</b> billing is handled personally by invoice during the pilot — no payment ever happens inside the app,
       and children can never reach this screen (PIN-gated). Prices are config-driven pilot hypotheses (${CONFIG.currency}).</small></p></div>`;
+  }
+  if (tab === "teach") {
+    const subs = SUBJECTS.filter(s => s.id !== "explore");
+    const list = (S.custom || []);
+    const rows = list.length ? list.map(x => {
+      const sub = SUBJECTS.find(s => s.id === x.subject);
+      const ans = x.opts && x.opts.length ? x.opts[x.a] : x.a;
+      return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)">
+        <div class="row spread"><div><b>${sub ? sub.glyph : "📓"} ${esc(x.q)}</b>
+          <div class="dim"><small>${sub ? sub.name : x.subject}${x.band != null ? " · " + BAND_NAMES[x.band] : " · all years"} · answer: ${esc(String(ans))}</small></div></div>
+          <button class="small danger" onclick="deleteCustom('${x.id}')">Delete</button></div></div>`;
+    }).join("") : `<p class="dim">No custom exercises yet. Add one below — it appears for your child under "📓 Teacher's exercises".</p>`;
+    return `<div class="card"><h2>📓 Teacher / tutor tools</h2>
+      <p class="dim">Add your OWN exercises for your child — perfect for a tutor or teacher setting specific practice. They appear for the child as "Teacher's exercises", marked, hinted and explained like the built-in ones. Stored on this device only.</p></div>
+      <div class="card"><h3>Add an exercise</h3>
+        <label>Subject</label>
+        <select id="cx-subject">${subs.map(s => `<option value="${s.id}">${s.glyph} ${s.name}</option>`).join("")}</select>
+        <label>Year level</label>
+        <select id="cx-band"><option value="">All years</option>${BAND_NAMES.map((n, i) => `<option value="${i}">${n}</option>`).join("")}</select>
+        <label>Question</label>
+        <textarea id="cx-q" rows="2" placeholder="e.g. What is 15% of 80?"></textarea>
+        <label>Answer type</label>
+        <select id="cx-type" onchange="toggleCxType()"><option value="mc">Multiple choice</option><option value="short">Short answer</option></select>
+        <div id="cx-mc">
+          <label>Options (leave unused ones blank). Tick the correct one.</label>
+          ${[0,1,2,3].map(i => `<div class="row" style="gap:8px;align-items:center;margin:4px 0">
+            <input type="radio" name="cx-correct" value="${i}" ${i===0?"checked":""}>
+            <input id="cx-opt${i}" placeholder="Option ${i+1}" style="flex:1">
+          </div>`).join("")}
+        </div>
+        <div id="cx-short" style="display:none">
+          <label>Correct answer</label><input id="cx-ans" placeholder="e.g. 12">
+        </div>
+        <label>Hint (optional)</label><input id="cx-hint" placeholder="A nudge if they're stuck">
+        <label>Explanation / worked solution (optional)</label><textarea id="cx-worked" rows="2" placeholder="How to solve it"></textarea>
+        <div class="actions" style="margin-top:10px"><button class="primary" onclick="addCustomExercise()">➕ Add exercise</button></div>
+      </div>
+      <div class="card"><h3>Your exercises (${list.length})</h3>${rows}</div>`;
   }
   if (tab === "ai") {
     const st = S.settings;

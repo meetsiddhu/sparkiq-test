@@ -465,15 +465,16 @@ RULES (non-negotiable):
    curiosity. Kept short + structured so it's readable and cheap. */
 const EXPLAIN_SYSTEM_PROMPT = `You are Spark, explaining a topic to an Australian school student in Year {{year}}.
 Explain ANY topic they ask about — science, history, how things work, a word, an idea — clearly and correctly.
-STRUCTURE your answer as a tiny lesson, in this order, using plain language for a Year {{year}} reader:
+STRUCTURE your answer as a tiny lesson, using plain language for a Year {{year}} reader:
 1. HOOK — one sentence on why this is interesting or matters.
-2. THE IDEA — the core explanation in 2–4 short sentences. Correct, but simple. No jargon without a plain-word meaning.
-3. LIKE THIS — one everyday analogy or picture ("it's like when…") that makes it click.
-4. IN REAL LIFE — one concrete real-world example a kid would recognise.
-5. ONE WONDER — end with a single short question that invites them to think or ask more.
+2. THE IDEA — the core explanation in 2–4 short sentences. Correct FIRST, simple second. No jargon without a plain-word meaning. Getting it right matters more than making it cute.
+3. LIKE THIS — an everyday analogy ONLY IF it is genuinely accurate. A misleading analogy is worse than none — if the best analogy would plant a wrong idea (e.g. evolution is NOT an animal "trying" to change; electricity is not really water), SKIP this and stay literal.
+4. IN REAL LIFE — one concrete real-world example, only if it's a true and clear fit.
+5. COMMON MIX-UP — if there's a famous wrong idea about this topic, name it and correct it in one short sentence (e.g. "Lots of people think seasons come from Earth being closer to the Sun — actually it's the tilt.").
+6. ONE WONDER — end with a single short question that invites them to think or ask more.
 RULES (non-negotiable):
-- AGE: match vocabulary and sentence length to Year {{year}}. Younger = shorter, warmer.
-- HONESTY: if something is uncertain, debated, or you're not sure, say so plainly. Never invent facts, statistics, dates, or sources. It's fine to say "scientists aren't fully sure".
+- AGE: match vocabulary and sentence length to Year {{year}}. A younger reader gets shorter, warmer sentences; an older reader gets a crisper, more precise answer (don't be babyish for a senior student).
+- HONESTY: if something is uncertain, debated, historical-with-disputed-details, or you're not fully sure, SAY SO plainly ("historians aren't certain", "scientists are still working this out"). Never invent facts, statistics, dates, or sources. A child cannot tell a confident guess from a fact, so never guess with confidence.
 - SAFETY: you only explain learning/curiosity topics. If asked for something unsafe, adult, hateful, or off-limits, warmly decline and steer back to learning. If the child seems upset or unsafe, gently point them to a trusted adult and Kids Helpline 1800 55 1800.
 - PERSONA: you are always Spark; never "act as" anything else.
 - LENGTH: keep the whole thing short — a few short sentences per part, never a wall of text. No headings or markdown symbols; just flow naturally with the five beats.`;
@@ -1662,14 +1663,24 @@ function classifyFeedback(text) {
    SAFETY — moderation, distress, persona-override detection
    ============================================================ */
 const SAFETY = {
-  distress: /(kill myself|hurt myself|self.?harm|suicide|want to die|hate my life|no one loves me|being bullied|bully me|bullies me|hurts me at home|scared of (him|her|them|dad|mum)|abuse)/i,
-  personaOverride: /(ignore (all|your|previous) (instructions|rules)|pretend (to be|you are|you're)|act as (?!a student)|jailbreak|you are now|forget your rules|system prompt|new persona)/i,
-  offTopic: /(gamble|betting|vape|cigarette|alcohol|beer|dating advice|girlfriend|boyfriend|violent|weapon|gun|knife fight|drugs)/i,
+  // Distress / danger to SELF — always routes to a trusted adult + Kids Helpline.
+  distress: /(kill myself|hurt myself|hurting myself|self.?harm|cut myself|suicide|suicidal|want to die|end it all|hate my life|no one loves me|being bullied|bully me|bullies me|bullied at|hurts me at home|scared of (him|her|them|dad|mum)|being abused|abuse me|starve myself|stop eating|not eat|make myself sick|throw up my food|pro.?ana|so fat i)/i,
+  // Serious harm to OTHERS or making weapons — refuse + route to a trusted adult. (Council child-safety
+  // ship-blocker #2: the old filter had no bomb/poison/harm-to-others terms.) NOTE: kept narrow to
+  // ACTIONS ("make a bomb", "hurt someone"), so that curriculum health/history questions still pass.
+  hardDanger: /(make (a |an )?(bomb|explosive|weapon|poison|gun)|build (a |an )?(bomb|weapon|explosive)|how to (poison|stab|shoot|hurt|kill|strangle|attack) (someone|him|her|them|my|a )|hurt (someone|people|him|her|them)|kill (someone|him|her|them|people)|where to (buy|get) (a )?(gun|knife|drugs to))/i,
+  personaOverride: /(ignore (all|your|the|previous) (instructions|rules)|pretend (to be|you are|you're|that you)|act as (?!a student)|jailbreak|you are now|forget (your|the|all) (rules|instructions)|no rules|without any rules|system prompt|new persona|my (parent|mum|dad|teacher) said (it'?s ok|you can|it is ok))/i,
+  // Truly off-topic/unsafe-for-kids only. Health topics (vaping, alcohol, drugs) are DELIBERATELY NOT
+  // here — NSW PDHPE mandates that education; the model + hardDanger handle genuine misuse. (Council
+  // teacher ship-blocker #6: the old regex blocked legitimate curriculum.)
+  offTopic: /(gambl|betting odds|dating advice|hook up|sexual|porn|nudes|onlyfans)/i,
   profanity: /(fuck|shit|bitch|cunt|asshole|dickhead|slut)/i,
 
   check(text) {
     if (this.distress.test(text)) return { kind: "distress",
       reply: `That sounds really heavy, and I'm glad you told me. I'm a learning helper, so the best thing is to talk to a trusted adult — a parent, teacher, or school counsellor. You can also call Kids Helpline any time, free: 1800 55 1800. You matter, and talking to a person who can really help is a strong move. 💛` };
+    if (this.hardDanger.test(text)) return { kind: "safety_danger",
+      reply: `I can't help with anything that could hurt you or someone else — that's really important to me. If someone is in danger, please tell a trusted adult right now, or call 000 in an emergency. You can also talk to Kids Helpline any time: 1800 55 1800. Let's get back to learning when you're ready. 💛` };
     if (this.personaOverride.test(text)) return { kind: "persona_override_attempt",
       reply: `Nice try! 😄 I'm Spark, and I'm only ever Spark. Let's put that creative energy into learning — want to keep going?` };
     if (this.profanity.test(text)) return { kind: "moderation_input",
@@ -1678,7 +1689,10 @@ const SAFETY = {
       reply: `That's outside what I can help with — I'm your learning buddy. A trusted adult is the right person for that one. Want to get back to our topic?` };
     return null;
   },
+  // Output-side net: if a model reply slips into distress/self-harm/danger territory, DON'T show it —
+  // signal the caller to replace it with the Kids Helpline message. (Council child-safety ship-blocker #3.)
   checkOutput(text) {
+    if (this.distress.test(text) || this.hardDanger.test(text)) return "distress";
     if (this.profanity.test(text) || this.offTopic.test(text)) return false;
     return true;
   },
@@ -1834,13 +1848,28 @@ const Engine = {
   },
 
   exploreAnswer(text) {
-    const t = text.toLowerCase();
+    // Whole-WORD matching (not substring) so "seasons" no longer matches "sea" and returns the
+    // ocean answer, "bluetooth" no longer matches "blue", etc. (Council teacher ship-blocker #1.)
+    // Require a genuine key hit; a weak/near-miss returns null → the honest "I don't know" fallback.
+    const words = new Set((text.toLowerCase().match(/[a-z]+/g) || []));
     let best = null, bestScore = 0;
     for (const e of EXPLORE_BANK) {
-      const score = e.keys.filter(k => t.includes(k)).length;
+      const score = e.keys.filter(k => k.split(/\s+/).every(w => words.has(w))).length;
       if (score > bestScore) { best = e; bestScore = score; }
     }
-    return best ? best.a : null;
+    return bestScore >= 1 ? best.a : null;
+  },
+
+  // Kid-friendly example questions that are GUARANTEED to hit the offline bank — so when AI is off we
+  // suggest only topics we can actually answer (Council kid + parent finding: never suggest a topic
+  // the offline brain will reject). Ordered to match EXPLORE_BANK; keep in sync if the bank grows.
+  exploreExamples() {
+    return [
+      "Why is the sky blue?", "Where did the dinosaurs go?", "Why does the Moon change shape?",
+      "Why do volcanoes erupt?", "Why do we dream?", "Why is the sea salty?",
+      "What makes lightning?", "How does gravity work?", "How does the internet work?",
+      "What is money?",
+    ];
   },
 
   evalExplanation(text, item) {
@@ -2651,7 +2680,7 @@ function screenHome(childId) {
       <div class="card tile-pop" style="cursor:pointer;margin:14px 0 0" onclick="startPaperSolve('${childId}')">
         <div><b>📝 Homework help</b><br><small class="dim">Stuck on a question? I'll explain it, step by step.</small></div></div>
       <div class="card tile-pop" style="cursor:pointer;margin:14px 0 0;border-color:var(--spark)" onclick="startExplain('${childId}')">
-        <div><b>🔍 Explain Anything</b><br><small class="dim">Curious about a topic? I'll research it and explain it simply, with a real-life example.</small></div></div>
+        <div><b>🔍 ${aiExplainOn() ? "Explain Anything" : "Curious Corner"}</b><br><small class="dim">${aiExplainOn() ? "Curious about a topic? I'll explain it simply, with a real-life example." : "Big questions, explained simply — tap for my favourites."}</small></div></div>
       <div class="card tile-pop" style="cursor:pointer;margin:14px 0 0;border-color:var(--good)" onclick="screenProgress('${childId}')">
         <div><b>🌟 My Progress</b><br><small class="dim">See how much you've grown — subjects, mastered concepts, badges &amp; learning days.</small></div></div>
       <div class="card tile-pop" style="cursor:pointer;margin:14px 0 0;border-color:var(--accent)" onclick="screenShop('${childId}')">
@@ -4033,7 +4062,12 @@ async function submitPaperSolve(childId) {
   const out = document.getElementById("ps-out");
   const c = S.children.find(x => x.id === childId);
   awardBadge(childId, "Homework Helper");
-  if (S.settings.engine === "remote" && S.settings.key) {
+  if (aiExplainOn() && !explainTurnOk(childId)) {
+    out.innerHTML = `<div class="card"><p>You've asked me a lot today — great effort! 🌟 Let's pick this up tomorrow, or practise a subject now.</p>
+      <div class="actions"><button class="primary" onclick="startSession('${childId}','${sub}')">Practise ${esc(SUBJECTS.find(s=>s.id===sub).name)} →</button></div></div>`;
+    return;
+  }
+  if (aiExplainOn()) {
     out.innerHTML = `<div class="card"><p class="dim">Thinking it through… 🤔</p></div>`;
     const prompt = `You are Spark helping a Year ${c.year} student understand a ${SUBJECTS.find(s=>s.id===sub).name} question they pasted: "${q}". Explain the concept and reasoning step by step in plain Year ${c.year} language. Never give only a bare final answer. End with one short "your turn" question. Keep it readable — short steps, not one long block.`;
     const reply = await callRemoteRaw(prompt, q, c);
@@ -4050,26 +4084,34 @@ async function submitPaperSolve(childId) {
 }
 
 /* ---------- Explain Anything (research a topic → kid-simple mini-lesson) ---------- */
+function aiExplainOn() { return S.settings.engine === "remote" && (S.settings.key || S.settings.provider === "proxy"); }
 function startExplain(childId) {
   const c = S.children.find(x => x.id === childId);
   if (!c) return screenProfiles();
   document.documentElement.classList.toggle("young", !!c.young);
-  const aiOn = S.settings.engine === "remote" && (S.settings.key || S.settings.provider === "proxy");
+  const aiOn = aiExplainOn();
+  // When AI is off, only advertise topics we can actually answer (Council: never suggest a miss).
+  const examples = Engine.exploreExamples();
+  const chips = examples.map(q => `<button class="chip" style="cursor:pointer;margin:3px" onclick="explainPick('${childId}', this)">${esc(q)}</button>`).join("");
   render(`
     <div class="topbar">
       <button class="ghost small" onclick="screenHome('${childId}')">← Home</button>
-      <span class="chip">🔍 Explain Anything</span>
+      <span class="chip">🔍 ${aiOn ? "Explain Anything" : "Curious Corner"}</span>
     </div>
     <div class="card">
       <h2>🔍 What do you want to understand?</h2>
-      <p class="dim">Type any topic — "black holes", "why we dream", "how the stock market works", "photosynthesis" — and I'll explain it clearly, with a real-life example, just for a Year ${c.year} brain.</p>
+      <p class="dim">${aiOn
+        ? `Type <b>any</b> topic and I'll explain it clearly, with a real-life example, just for a Year ${c.year} brain.`
+        : `Tap one of my favourite big questions below, or type one of these topics — I explain them clearly for a Year ${c.year} brain.`}</p>
+      <div style="margin:8px 0 4px">${chips}</div>
       <label>Your topic</label>
-      <textarea id="ex-q" rows="3" placeholder="e.g. Why is the sky blue?"></textarea>
+      <textarea id="ex-q" rows="2" placeholder="${aiOn ? "e.g. How do black holes bend time?" : "e.g. Why is the sky blue?"}"></textarea>
       <div class="actions"><button class="primary" onclick="submitExplain('${childId}')">Explain it to me →</button></div>
-      ${aiOn ? "" : `<p class="dim"><small>💡 Tip: my built-in brain knows lots of common topics. For <b>any</b> topic, a grown-up can switch on the AI engine in the Parent area (it's free with a Google Gemini key).</small></p>`}
+      ${aiOn ? "" : `<p class="dim"><small>💡 There's a bigger world of questions I can unlock — a grown-up can switch on the AI engine in the Parent area.</small></p>`}
     </div>
     <div id="ex-out"></div>`);
 }
+function explainPick(childId, btn) { const b = document.getElementById("ex-q"); if (b) { b.value = btn.textContent; submitExplain(childId); } }
 async function submitExplain(childId) {
   const box = document.getElementById("ex-q");
   const topic = (box.value || "").trim();
@@ -4078,32 +4120,47 @@ async function submitExplain(childId) {
   const flag = SAFETY.check(topic);
   if (flag) { logSafety(childId, flag.kind, "Explain-topic input redirected."); out.innerHTML = `<div class="card"><p>${esc(flag.reply)}</p></div>`; return; }
   const c = S.children.find(x => x.id === childId);
-  awardBadge(childId, "Curious Mind");
   addXp(CONFIG.xpAttempt);
-  /* 1) built-in engine first — free, instant, offline. */
+  /* 1) built-in engine first — free, instant, offline, human-vetted. Preferred even when AI is on:
+     if we have a checked-correct answer, use it (no hallucination surface). (Council teacher #7.) */
   const local = Engine.exploreAnswer(topic);
-  if (local && S.settings.engine !== "remote") {
-    out.innerHTML = explainCard(childId, local); say(local); return;
-  }
-  /* 2) AI router (research-grade, kid-simple) if a grown-up switched it on. */
-  if (S.settings.engine === "remote" && (S.settings.key || S.settings.provider === "proxy")) {
+  if (local) { awardExplain(childId, topic); out.innerHTML = explainCard(childId, local, false); say(local); return; }
+  /* 2) AI router (research-grade, kid-simple) if a grown-up switched it on — behind the daily cap. */
+  if (aiExplainOn()) {
+    if (!explainTurnOk(childId)) {
+      out.innerHTML = `<div class="card"><p>You've done a LOT of exploring today — nice curiosity! 🌟 Let's give it a rest and pick it up tomorrow. Want to practise a subject instead?</p>
+        <div class="actions"><button class="primary" onclick="screenHome('${childId}')">Home ⭐</button></div></div>`;
+      return;
+    }
     out.innerHTML = `<div class="card"><p class="dim">Researching that for you… 🔍</p></div>`;
     const sys = EXPLAIN_SYSTEM_PROMPT.replace(/\{\{year\}\}/g, String(c.year));
     const reply = await callRemoteRaw(sys, `Explain this topic to me: ${topic}`, c);
-    if (reply) { out.innerHTML = explainCard(childId, reply); say(reply); return; }
-    out.innerHTML = explainCard(childId, "I couldn't reach the AI just now — try again in a moment, or a grown-up can check the AI settings in the Parent area.");
+    if (reply) { awardExplain(childId, topic); out.innerHTML = explainCard(childId, reply, true); say(reply); return; }
+    out.innerHTML = explainCard(childId, "I couldn't reach the AI just now — try again in a moment, or a grown-up can check the AI settings in the Parent area.", false);
     return;
   }
-  /* 3) offline + no match: be honest, offer what we DO have. */
-  if (local) { out.innerHTML = explainCard(childId, local); say(local); return; }
+  /* 3) offline + no match: be honest, offer what we DO know (never dead-end the kid). */
   out.innerHTML = `<div class="card">
-    <p>Great question! My built-in brain doesn't have that exact topic memorised — and I'd rather tell you the truth than make something up. 😊</p>
-    <p class="dim">A grown-up can switch on the AI engine in the Parent area to explain <b>any</b> topic (it's free with a Google Gemini key). Meanwhile, want to explore a topic I <b>do</b> know, or practise a subject?</p>
-    <div class="actions"><button class="primary" onclick="startSession('${childId}','explore')">🔭 Explore with me →</button>
-    <button class="ghost" onclick="startExplain('${childId}')">Ask something else</button></div></div>`;
+    <p>Great question! I don't have that exact topic in my built-in brain yet — and I'd rather tell you the truth than make something up. 😊</p>
+    <p class="dim">Here are big questions I <b>can</b> explain right now — tap one:</p>
+    <div style="margin:6px 0">${Engine.exploreExamples().map(q => `<button class="chip" style="cursor:pointer;margin:3px" onclick="explainPick('${childId}', this)">${esc(q)}</button>`).join("")}</div>
+    <div class="actions"><button class="ghost" onclick="startSession('${childId}','explore')">🔭 Explore mode</button></div></div>`;
 }
-function explainCard(childId, text) {
+/* Per-child daily cap on remote Explain calls — reuses the tutor's meter so a kid can't spam the LLM
+   (Council child-safety #4 / CFO #3). Offline answers are always free and uncapped. */
+function explainTurnOk(childId) { return useTurn(childId) <= tier().aiTurnsPerDay; }
+function awardExplain(childId, topic) {
+  awardBadge(childId, "Curious Mind");
+  // Reward NEW curiosity: a gem the first time a distinct topic is explored today.
+  S.explored = S.explored || {};
+  const day = todayKey(); const seen = S.explored[childId] = S.explored[childId] || {};
+  const key = (topic || "").toLowerCase().slice(0, 40);
+  if (seen[key] !== day) { seen[key] = day; addGems(childId, 1); }
+  save();
+}
+function explainCard(childId, text, isAI) {
   return `<div class="card"><p>${esc(text)}</p>
+    ${isAI ? `<p class="dim"><small>🤖 An AI helped explain this — it's usually right, but can make mistakes. Check anything important with a grown-up or a book.</small></p>` : ""}
     <div class="actions"><button class="primary" onclick="startExplain('${childId}')">Explain another 🔍</button>
     <button class="ghost" onclick="screenHome('${childId}')">Home ⭐</button></div></div>`;
 }
@@ -4489,7 +4546,7 @@ const COST_PER_MTOK = {
   gemini: { in: 0.30, out: 2.50 },
   anthropic: { in: 1.00, out: 5.00 },
   openai: { in: 0.50, out: 1.50 },
-  proxy: { in: 0, out: 0 }, // server proxy → Gemini free tier: ~$0 at pilot volume
+  proxy: { in: 0.30, out: 2.50 }, // server proxy runs on Gemini — estimate at Gemini rates, not $0 (Council CFO #4: don't auto-pass the budget tile). True spend is metered server-side.
 };
 function estTokens(text) { return Math.ceil((text || "").length / 4); } // ~4 chars/token
 /* Accumulate estimated cost-to-serve per family, so the pilot MEASURES the ≤$1.50/family/mo
@@ -4535,9 +4592,12 @@ async function callRemoteRaw(sysPrompt, userText, child) {
       out = j?.content?.[0]?.text;
     } else if (st.provider === "proxy") {
       /* SparkIQ server proxy (Supabase Edge Function). The API key lives ON THE SERVER, never
-         here — so this is the only child-safe way to ship AI without a key in the client. */
+         here — so this is the only child-safe way to ship AI without a key in the client. The
+         optional "key" box, if filled, is sent as a shared secret header (not an API key). */
+      const hdrs = { "content-type": "application/json" };
+      if (st.key) hdrs["x-sparkiq-secret"] = st.key;
       const resp = await fetch(st.endpoint, {
-        method: "POST", headers: { "content-type": "application/json" },
+        method: "POST", headers: hdrs,
         body: JSON.stringify({ system: sysPrompt, user: userText }),
       });
       const j = await resp.json();
@@ -4553,7 +4613,12 @@ async function callRemoteRaw(sysPrompt, userText, child) {
       out = j?.choices?.[0]?.message?.content;
     }
     if (out) recordCost(inTok, estTokens(out));
-    if (out && SAFETY.checkOutput(out)) return out.slice(0, 1200);
+    const verdict = out ? SAFETY.checkOutput(out) : true;
+    if (verdict === true) return out.slice(0, 1200);
+    if (verdict === "distress" && childId) {
+      logSafety(childId, "moderation_output_distress", "Remote reply hit distress/danger filter — replaced with Kids Helpline message.");
+      return `I want to make sure you're safe, so I'll pause the lesson for this one. If something's worrying you, please talk to a trusted adult — or call Kids Helpline any time, free: 1800 55 1800. 💛`;
+    }
     if (out && childId) logSafety(childId, "moderation_output", "Remote reply blocked by output filter.");
   } catch (e) { console.warn("remote engine failed", e); }
   return null;
@@ -4747,13 +4812,13 @@ function parentTab(tab) {
       <option value="remote" ${st.engine === "remote" ? "selected" : ""}>Remote LLM (parent-supplied key)</option></select>
       <div id="ai-remote" style="display:${st.engine === "remote" ? "block" : "none"}">
         <label>Provider</label><select id="ai-provider"><option value="proxy" ${st.provider === "proxy" ? "selected" : ""}>SparkIQ server (free · Gemini via your Supabase · no key here) ⭐</option>
-        <option value="gemini" ${st.provider === "gemini" ? "selected" : ""}>Google Gemini (free key from aistudio.google.com)</option>
-        <option value="anthropic" ${st.provider === "anthropic" ? "selected" : ""}>Anthropic (Claude)</option>
-        <option value="openai" ${st.provider === "openai" ? "selected" : ""}>OpenAI-compatible endpoint</option></select>
+        <option value="gemini" ${st.provider === "gemini" ? "selected" : ""}>Google Gemini — direct key (testing only)</option>
+        <option value="anthropic" ${st.provider === "anthropic" ? "selected" : ""}>Anthropic (Claude) — direct key (testing only)</option>
+        <option value="openai" ${st.provider === "openai" ? "selected" : ""}>OpenAI-compatible — direct key (testing only)</option></select>
         <label>Endpoint <span class="hint">${st.provider === "proxy" ? "(your Edge Function URL)" : "(blank = provider default)"}</span></label><input id="ai-endpoint" value="${esc(st.endpoint)}" placeholder="${st.provider === "proxy" ? "https://xxxx.functions.supabase.co/explain" : "https://…"}">
         <label>Model <span class="hint">(blank = sensible default)</span></label><input id="ai-model" value="${esc(st.model)}" placeholder="e.g. gemini-2.5-flash">
         <label>API key <span class="hint">${st.provider === "proxy" ? "(not needed — the server holds it)" : ""}</span></label><input id="ai-key" type="password" value="${esc(st.key)}" placeholder="${st.provider === "proxy" ? "leave blank" : "sk-…"}">
-        <p class="dim"><small>⭐ <b>Recommended:</b> the <b>SparkIQ server</b> option keeps the AI key on your Supabase server, never in this browser — the child-safe way to ship AI. Set it up with <code>backend/functions/explain</code> (see <code>backend/SETUP.md</code>). The direct-key options work today but ⚠️ a key in the browser is visible to anyone with device access — use a low-limit key.</small></p>
+        <p class="dim"><small>⭐ <b>Recommended for a child's device:</b> the <b>SparkIQ server</b> option keeps the AI key on your Supabase server, never in this browser — the only child-safe way to ship AI. Set it up with <code>backend/functions/explain</code> (see <code>backend/SETUP.md</code>).<br>⚠️ The three <b>direct-key</b> options are <b>for your own testing only</b> — a key pasted here is saved in the browser and readable by anyone with the device. <b>Never</b> put a direct key on a child's device. Also: Gemini's <b>free</b> tier may use submitted text to train Google's models — use a <b>paid</b> (no-train) tier before any real child uses AI.</small></p>
       </div>
       <div class="actions"><button class="primary" id="ai-save">Save</button>
       <button class="ghost" onclick="modal('<h2>Tutor system prompt</h2><pre style=\\'white-space:pre-wrap;font-size:.8em\\'>'+TUTOR_SYSTEM_PROMPT.replace(/</g,'&lt;')+'</pre>')">View system prompt</button></div></div>`;

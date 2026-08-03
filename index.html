@@ -2057,15 +2057,21 @@ function shopItem(kind, id) { return (SHOP[kind] || []).find(x => x.id === id); 
    Timed, one-shot per question, misses bank to spaced review + concept re-teach.
    ============================================================ */
 const PAPERS = [
-  { id: "sel-full", name: "Selective — Full Mock Paper", glyph: "🏆", tag: "NSW Selective", minsEach: 60, writing: true,
-    blurb: "All areas in one sitting — the real exam shape.",
-    sections: [ { name: "Reading", sel: "reading", n: 5 }, { name: "Mathematical Reasoning", sel: "mathreason", n: 5 }, { name: "Thinking Skills", sel: "thinking", n: 5 } ] },
-  { id: "sel-thinking", name: "Selective — Thinking Skills Paper", glyph: "🧩", tag: "NSW Selective", minsEach: 60,
-    blurb: "10 logic & reasoning questions, exam-paced.",
-    sections: [ { name: "Thinking Skills", subject: "thinking", n: 10 } ] },
-  { id: "sel-reading", name: "Selective — Reading Paper", glyph: "📖", tag: "NSW Selective", minsEach: 60,
-    blurb: "8 reading-comprehension questions.",
-    sections: [ { name: "Reading", subject: "selReading", n: 8 } ] },
+  // Counts mirror the CURRENT 2026 NSW Selective (Janison/Cambridge) format: Maths 35, Thinking 40,
+  // Reading ~17 passages→multi Q, Writing 1. Single-subject papers run at full exam length; the
+  // combined mock is a shorter all-in-one taster so a kid can finish it in one sitting.
+  { id: "sel-maths", name: "Selective — Mathematical Reasoning", glyph: "📐", tag: "NSW Selective", minsEach: 40,
+    blurb: "Full length: 35 questions, ~40 min — matches the 2026 exam.",
+    sections: [ { name: "Mathematical Reasoning", sel: "mathreason", n: 35 } ] },
+  { id: "sel-thinking", name: "Selective — Thinking Skills", glyph: "🧩", tag: "NSW Selective", minsEach: 40,
+    blurb: "Full length: 40 questions, ~40 min — matches the 2026 exam.",
+    sections: [ { name: "Thinking Skills", subject: "thinking", n: 40 } ] },
+  { id: "sel-reading", name: "Selective — Reading", glyph: "📖", tag: "NSW Selective", minsEach: 45,
+    blurb: "Comprehension + vocabulary cloze, ~45 min — matches the 2026 exam.",
+    sections: [ { name: "Reading", subject: "selReading", n: 18 } ] },
+  { id: "sel-full", name: "Selective — All-Subjects Taster", glyph: "🏆", tag: "NSW Selective", minsEach: 60, writing: true,
+    blurb: "A shorter run across every section. For full exam length, sit each single-subject paper.",
+    sections: [ { name: "Reading", sel: "reading", n: 6 }, { name: "Mathematical Reasoning", sel: "mathreason", n: 10 }, { name: "Thinking Skills", sel: "thinking", n: 10 } ] },
   { id: "naplan-num", name: "NAPLAN-style — Numeracy Paper", glyph: "🔢", tag: "NAPLAN", minsEach: 60,
     blurb: "10 numeracy questions across your year level.",
     sections: [ { name: "Numeracy", subject: "maths", n: 10 } ] },

@@ -2167,7 +2167,7 @@ function blankState() {
     sessions: [], summaries: {}, safety: [],
     northStar: { diag: 0, second: 0 },
     meter: { date: "", turns: {} },
-    settings: { engine: "local", provider: "anthropic", endpoint: "", key: "", model: "" },
+    settings: { engine: "local", provider: "anthropic", endpoint: "", key: "", model: "", supaUrl: "", supaKey: "" },
     freeSubject: {},
     custom: [], // teacher/tutor-authored exercises (parent-PIN-gated to add)
     daily: {},  // Daily Spark: { childId: { last: "YYYY-MM-DD", days: [dates], intention: "" } }
@@ -2179,7 +2179,7 @@ function load() {
   catch (e) { console.warn("load failed", e); }
   return blankState();
 }
-function save() { localStorage.setItem(DB_KEY, JSON.stringify(S)); }
+function save() { localStorage.setItem(DB_KEY, JSON.stringify(S)); syncMaybePush(); }
 function uuid() { return "id-" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
 function todayKey() { return new Date().toISOString().slice(0, 10); }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c])); }
@@ -4835,6 +4835,7 @@ function parentTab(tab) {
       <div class="actions"><button class="primary" onclick="exportData()">⬇ Export JSON</button>
       <button class="ghost" onclick="importData()">⬆ Import</button></div>
       <div class="actions" style="margin-top:8px"><button class="danger" onclick="wipeData()">🗑 Erase everything</button></div></div>
+      ${cloudCard()}
     <div class="card"><h2>📊 Pilot readout</h2>
       <p class="dim">Helping with the SparkIQ pilot? This shares <b>only aggregate numbers</b> — North Star, "% loved",
       weekly activity, cost-to-serve — with <b>no nicknames and no message content</b>. It's how the pilot measures
@@ -4925,6 +4926,29 @@ function switchPlan(id) {
   modal(`<h2>Plan updated ✔</h2><p>You're on <b>${CONFIG.tiers[id].label}</b>. During the pilot, billing is arranged personally — nothing is charged by the app.</p>`);
   screenParent("plan");
 }
+function cloudCard() {
+  const st = S.settings;
+  if (syncSignedIn()) {
+    return `<div class="card"><h2>☁️ Cloud backup <span class="tag">on</span></h2>
+      <p class="dim">Signed in as <b>${esc(syncEmail())}</b>. Your family's data is backed up and syncs across devices automatically. Clearing this browser won't lose anything.</p>
+      <div id="cloud-status" class="dim"><small>Auto-syncs as you learn.</small></div>
+      <div class="actions"><button class="primary" onclick="doSyncNow()">🔄 Sync now</button>
+      <button class="ghost" onclick="doSignOut()">Sign out</button></div></div>`;
+  }
+  if (syncConfigured()) {
+    return `<div class="card"><h2>☁️ Cloud backup <span class="tag">ready</span></h2>
+      <p class="dim">Sign in with a one-time email link to back up across devices — no password. Open the link <b>on this device</b>.</p>
+      <label>Your email</label><input id="cloud-email" type="email" placeholder="you@example.com">
+      <div class="actions"><button class="primary" onclick="doSendLink()">✉️ Email me a login link</button>
+      <button class="ghost" onclick="S.settings.supaUrl='';S.settings.supaKey='';save();screenParent('data')">Change project</button></div>
+      <div id="cloud-status" class="dim" style="margin-top:8px"></div></div>`;
+  }
+  return `<div class="card"><h2>☁️ Cloud backup <span class="tag">off</span></h2>
+    <p class="dim">Optional. Everything works offline on this device. To back up and sync across devices, connect a free Supabase project (see <code>backend/SETUP.md</code>). Paste your <b>Project URL</b> and <b>anon public key</b> — the anon key is safe in the client; row-level security protects the data.</p>
+    <label>Project URL</label><input id="cloud-url" placeholder="https://xxxx.supabase.co" value="${esc(st.supaUrl)}">
+    <label>anon public key</label><input id="cloud-key" placeholder="eyJ… (anon public, NOT service_role)" value="${esc(st.supaKey)}">
+    <div class="actions"><button class="primary" onclick="saveCloudCfg()">Save & continue</button></div></div>`;
+}
 function exportData() {
   const blob = new Blob([JSON.stringify(S, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
@@ -4956,10 +4980,145 @@ function wipeData() {
 }
 function showPrivacy() { modal(parentTab("privacy")); }
 
+/* ============================================================
+   CLOUD SYNC (optional) — Supabase magic-link auth + one JSON blob per family.
+   Fixes the two real gaps: cache-clear data loss + cross-device. Raw fetch (no SDK,
+   zero-build app), config-driven, OFFLINE-FIRST: every function no-ops until a parent
+   adds their Project URL + anon key and signs in. The app never depends on it.
+   ponytail: whole-state blob in profiles.data, last-writer-wins. Per-table sync only
+   if/when a server-side report needs columns — nothing does yet.
+   ============================================================ */
+const AUTH_KEY = "sparkiq_auth"; // tokens live OUTSIDE S so they never sync to the server
+let _syncApplying = false, _syncPushT = null;
+function syncCfg() { return { url: (S.settings.supaUrl || "").replace(/\/+$/, ""), key: S.settings.supaKey || "" }; }
+function syncConfigured() { const c = syncCfg(); return !!(c.url && c.key); }
+function authGet() { try { return JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); } catch (e) { return null; } }
+function authSet(a) { if (a) localStorage.setItem(AUTH_KEY, JSON.stringify(a)); else localStorage.removeItem(AUTH_KEY); }
+function syncSignedIn() { const a = authGet(); return !!(a && a.access_token && a.user && syncConfigured()); }
+function syncEmail() { const a = authGet(); return (a && a.email) || ""; }
+
+async function syncSendLink(email) {
+  const c = syncCfg();
+  if (!c.url || !c.key) throw new Error("Add your Supabase Project URL + anon key first.");
+  const r = await fetch(`${c.url}/auth/v1/otp`, {
+    method: "POST", headers: { apikey: c.key, "content-type": "application/json" },
+    body: JSON.stringify({ email, create_user: true, options: { email_redirect_to: location.origin + location.pathname } }),
+  });
+  if (!r.ok) throw new Error(`Couldn't send the link (${r.status}). Check the URL/key and that Email (magic-link) auth is on.`);
+}
+async function syncUser() {
+  const c = syncCfg(), a = authGet(); if (!a) return null;
+  const r = await fetch(`${c.url}/auth/v1/user`, { headers: { apikey: c.key, Authorization: "Bearer " + a.access_token } });
+  return r.ok ? r.json() : null;
+}
+async function syncRefresh() {
+  const c = syncCfg(), a = authGet(); if (!a || !a.refresh_token) return false;
+  const r = await fetch(`${c.url}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST", headers: { apikey: c.key, "content-type": "application/json" },
+    body: JSON.stringify({ refresh_token: a.refresh_token }) });
+  if (!r.ok) { authSet(null); return false; }
+  const j = await r.json();
+  authSet(Object.assign(a, { access_token: j.access_token, refresh_token: j.refresh_token }));
+  return true;
+}
+// Magic-link returns tokens in the URL hash. Capture them, strip from the URL, sign in, pull.
+async function syncCapture() {
+  const h = location.hash || "";
+  if (!/access_token=/.test(h)) return false;
+  const p = new URLSearchParams(h.slice(1));
+  const access_token = p.get("access_token"), refresh_token = p.get("refresh_token");
+  history.replaceState(null, "", location.pathname); // never leave tokens in the address bar
+  if (!access_token) return false;
+  authSet({ access_token, refresh_token });
+  const u = await syncUser();
+  if (!u) { authSet(null); return false; }
+  authSet({ access_token, refresh_token, user: u, email: u.email });
+  await syncPull();
+  return true;
+}
+function syncSerialize() { const c = JSON.parse(JSON.stringify(S)); if (c.settings) c.settings.key = ""; return c; } // never ship the direct LLM key
+async function syncApi(path, opts, retry = true) {
+  const c = syncCfg(), a = authGet(); if (!a) return null;
+  const r = await fetch(`${c.url}/rest/v1/${path}`, Object.assign({}, opts, {
+    headers: Object.assign({ apikey: c.key, Authorization: "Bearer " + a.access_token, "content-type": "application/json" }, opts.headers || {}) }));
+  if (r.status === 401 && retry && await syncRefresh()) return syncApi(path, opts, false);
+  return r;
+}
+async function syncPush() {
+  if (!syncSignedIn()) return false;
+  const r = await syncApi("profiles", {
+    method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify({ id: authGet().user.id, data: syncSerialize(), synced_at: new Date().toISOString() }) });
+  return !!(r && r.ok);
+}
+async function syncPull() {
+  if (!syncSignedIn()) return false;
+  const r = await syncApi("profiles?select=data", { method: "GET" });
+  if (!r || !r.ok) return false;
+  const rows = await r.json();
+  const data = rows && rows[0] && rows[0].data;
+  if (data && data.family) { // server has a family blob → adopt it (last-writer-wins), keep local creds
+    const keep = { supaUrl: S.settings.supaUrl, supaKey: S.settings.supaKey };
+    _syncApplying = true;
+    S = Object.assign(blankState(), data);
+    S.settings.supaUrl = keep.supaUrl; S.settings.supaKey = keep.supaKey;
+    save();
+    _syncApplying = false;
+  }
+  return true;
+}
+function syncMaybePush() { if (_syncApplying || !syncSignedIn()) return; clearTimeout(_syncPushT); _syncPushT = setTimeout(syncPush, 3000); }
+function syncSignOut() { authSet(null); }
+
+/* Runnable self-check (ponytail: one check for the non-trivial serialize/merge path).
+   Run syncSelfCheck() in the console — asserts the round-trip and secret-stripping. */
+function syncSelfCheck() {
+  const _S = S;
+  S = Object.assign(blankState(), { family: { email: "a@b.co" }, children: [{ id: "x", nickname: "Kid" }] });
+  S.settings.key = "SECRET"; S.settings.supaUrl = "https://p.supabase.co";
+  const blob = syncSerialize();
+  console.assert(blob.settings.key === "", "secret LLM key must be stripped before push");
+  console.assert(blob.children[0].nickname === "Kid", "child data must round-trip");
+  const keep = { supaUrl: S.settings.supaUrl, supaKey: S.settings.supaKey };
+  const merged = Object.assign(blankState(), blob);
+  merged.settings.supaUrl = keep.supaUrl;
+  console.assert(merged.settings.supaUrl === "https://p.supabase.co", "creds must survive a pull-merge");
+  console.assert(merged.family.email === "a@b.co", "family must survive a pull-merge");
+  S = _S;
+  return "syncSelfCheck OK";
+}
+
+/* ---------- Cloud backup UI (parent-gated, in the Data tab) ---------- */
+function saveCloudCfg() {
+  S.settings.supaUrl = (document.getElementById("cloud-url").value || "").trim();
+  S.settings.supaKey = (document.getElementById("cloud-key").value || "").trim();
+  save(); screenParent("data");
+}
+async function doSendLink() {
+  const email = (document.getElementById("cloud-email").value || "").trim();
+  const st = document.getElementById("cloud-status");
+  if (!/.+@.+\..+/.test(email)) { st.textContent = "Enter a valid email."; return; }
+  st.textContent = "Sending…";
+  try { await syncSendLink(email); st.innerHTML = `✅ Check <b>${esc(email)}</b> for a login link. Open it on this device.`; }
+  catch (e) { st.textContent = "⚠️ " + e.message; }
+}
+async function doSyncNow() {
+  const st = document.getElementById("cloud-status"); st.textContent = "Syncing…";
+  const ok = (await syncPush()) && (await syncPull());
+  st.textContent = ok ? "✅ Synced just now." : "⚠️ Sync failed — check your connection / sign-in.";
+}
+function doSignOut() { syncSignOut(); screenParent("data"); }
+
 /* ---------- Boot ---------- */
 starfield();
-if (!S.family) screenWelcome();
-else screenProfiles();
+(async () => {
+  try { if (location.hash && /access_token=/.test(location.hash)) await syncCapture(); } catch (e) { console.warn("sync capture failed", e); }
+  if (!S.family) screenWelcome(); else screenProfiles();
+  // Signed-in returning visit (no magic-link hash): refresh from cloud in the background.
+  if (syncSignedIn() && !(location.hash && /access_token=/.test(location.hash))) {
+    syncPull().then(ok => { if (ok && S.family) (document.getElementById("app") ? screenProfiles() : null); }).catch(() => {});
+  }
+})();
 
 </script>
 </body>

@@ -351,6 +351,54 @@ ul.clean { list-style: none; } ul.clean li { padding: 6px 0; border-bottom: 1px 
   .mascot { animation: none; }
 }
 
+/* ============================================================
+   YOUNG MODE = bright, cartoony Reading-Eggs/Duolingo look (per-child `young`).
+   Older kids keep the dark premium theme. Palette is var-driven so most of the
+   app recolours for free; a few hard-coded surfaces get young overrides below.
+   ============================================================ */
+html.young {
+  --bg: #eaf6ff; --bg-2: #d7ecff; --card: #ffffff; --card-2: #f3f8ff;
+  --ink: #17305c; --ink-dim: #5a6b8c;
+  --spark: #ffc93c; --spark-2: #ffb01f;
+  --good: #58cc63; --warn: #ff6b6b; --accent: #1cb0f6; --accent-2: #58cc02;
+}
+html.young body { background: linear-gradient(180deg, #eaf6ff 0%, #f7fbff 55%, #ffffff 100%); }
+html.young #stars { display: none; } /* no night sky in daytime mode */
+html.young .card {
+  border: 2px solid #e2ecfb; box-shadow: 0 8px 20px -10px rgba(28,60,120,.28);
+}
+html.young button { background: #eef3ff; color: #17305c; border: 2px solid #d7e3fa; box-shadow: 0 3px 0 #cdd9f2; }
+html.young button:hover { background: #e3ecff; }
+html.young button.primary { background: var(--accent); color: #fff; border-color: transparent; box-shadow: 0 3px 0 #1483c4; }
+html.young button.spark { color: #4a3400; box-shadow: 0 3px 0 #d99a12; }
+html.young button:active { transform: translateY(2px); box-shadow: none; }
+html.young .chip { background: #eaf1ff; color: #2a3f6b; border: 1px solid #d5e2fb; }
+html.young .tag { background: var(--accent-2); color: #fff; }
+html.young h3 { color: #6b7aa0; }
+html.young .mascot { box-shadow: 0 8px 22px -6px var(--pcol, var(--accent)); }
+
+/* ---------- Lesson PATH (young home): zig-zag of round subject nodes ---------- */
+.path { position: relative; display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 18px 0 8px; }
+.path::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 6px; transform: translateX(-50%);
+  background: repeating-linear-gradient(#cfe0f7 0 14px, transparent 14px 26px); border-radius: 6px; z-index: 0; }
+.pnode { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; width: 130px; }
+.pnode:nth-child(odd) { transform: translateX(-84px); }
+.pnode:nth-child(even) { transform: translateX(84px); }
+.pnode:nth-child(3n) { transform: translateX(0); }
+.pbub { position: relative; width: 74px; height: 74px; border-radius: 50%; display: grid; place-items: center; font-size: 2em;
+  background: radial-gradient(circle at 35% 28%, #ffffff, #dfeafb); border: 3px solid #ffffff;
+  box-shadow: 0 8px 16px -6px rgba(28,60,120,.4); transition: transform .12s cubic-bezier(.34,1.56,.64,1); }
+.pnode:active .pbub { transform: scale(.92); }
+.pnode.lit .pbub { background: radial-gradient(circle at 35% 28%, #fff6d8, #ffd166); }
+.pnode.locked { opacity: .5; }
+.pnode.locked .pbub { filter: grayscale(1); }
+.pname { font-size: .8em; font-weight: 700; color: var(--ink-dim); text-align: center; }
+.pnode.current .pbub { animation: nodePulse 1.6s ease-in-out infinite; border-color: var(--accent); }
+@keyframes nodePulse { 0%,100% { box-shadow: 0 8px 16px -6px rgba(28,60,120,.4); } 50% { box-shadow: 0 0 0 8px rgba(28,176,246,.25); } }
+.pmascot { position: absolute; top: -22px; right: -14px; font-size: .7em; animation: mascotIdle 2.6s ease-in-out infinite; }
+.pnode .badge { position: absolute; top: -6px; left: -6px; background: var(--warn); color: #fff; border-radius: 999px; min-width: 22px; height: 22px; display: grid; place-items: center; font-size: .6em; font-weight: 800; }
+@media (prefers-reduced-motion: reduce) { .pnode.current .pbub, .pmascot { animation: none; } }
+
 </style>
 </head>
 <body>
@@ -2637,6 +2685,31 @@ function screenProgress(childId) {
       <p class="dim" style="margin-top:6px"><small>Focus mode makes it calmer and quieter — good if you're older or want fewer celebrations.</small></p></div>
     ${voiceChooserCard(childId)}`);
 }
+/* Subjects as a game-style PATH for young kids (Duolingo/Reading-Eggs), tile grid for older. */
+function subjectMap(childId, c, due) {
+  const subs = SUBJECTS.filter(s => s.id !== "explore");
+  const cur = c.lastSubject || (subs[0] && subs[0].id);
+  const node = s => {
+    const lv = (S.levels[childId] || {})[s.id];
+    const allowed = subjectAllowed(childId, s.id);
+    const lit = lv && lv.diag === "done";
+    const dcount = due.filter(r => r.subject === s.id).length;
+    const onclick = allowed ? `startSession('${childId}','${s.id}')` : "lockedMsg()";
+    if (c.young) {
+      const isCur = s.id === cur;
+      return `<div class="pnode ${lit ? "lit" : ""} ${allowed ? "" : "locked"} ${isCur ? "current" : ""}" onclick="${onclick}">
+        <div class="pbub"><span class="pglyph">${s.glyph}</span>${dcount ? `<span class="badge">${dcount}</span>` : ""}${isCur ? `<span class="pmascot">${(personaById(c.persona)||{}).emoji||"⭐"}</span>` : ""}</div>
+        <div class="pname">${s.name}${lit ? ` · Lv ${lv.level}` : ""}</div></div>`;
+    }
+    return `<div class="star-card ${lit ? "lit" : ""} ${allowed ? "" : "locked"}" onclick="${onclick}">
+      ${dcount ? `<span class="badge">${dcount}</span>` : ""}
+      <span class="glyph">${s.glyph}</span><span class="name">${s.name}</span>
+      <div class="lvl">${lit ? `Level ${lv.level}${lv.challenge ? " 🚀" : ""}` : "Tap to start"}</div>
+      <div class="stars-row">${lv ? "⭐".repeat(Math.min(5, lv.stars)) : ""}</div></div>`;
+  };
+  if (c.young) return `<div class="path">${subs.map(node).join("")}</div>`;
+  return `<div class="sky"><div class="subject-grid">${subs.map(node).join("")}</div></div>`;
+}
 function voiceChooserCard(childId) {
   const list = TTS.enVoices();
   if (!list.length) return "";
@@ -2703,22 +2776,7 @@ function screenHome(childId) {
     ${due.length ? `<div class="card" style="border-color:var(--spark);cursor:pointer" onclick="startSession('${childId}','${due[0].subject}','review')">
       <div class="row spread"><div><b>🔁 Review time!</b><br><small class="dim">${due.length} thing${due.length>1?"s":""} ready to make stick forever</small></div>
       <button class="spark small">Review</button></div></div>` : ""}
-    <div class="sky"><div class="subject-grid">
-      ${SUBJECTS.filter(s => s.id !== "explore").map(s => {
-        const lv = (S.levels[childId] || {})[s.id];
-        const allowed = subjectAllowed(childId, s.id);
-        const lit = lv && lv.diag === "done";
-        const dcount = due.filter(r => r.subject === s.id).length;
-        return `<div class="star-card ${lit ? "lit" : ""} ${allowed ? "" : "locked"}"
-          onclick="${allowed ? `startSession('${childId}','${s.id}')` : `lockedMsg()`}">
-          ${dcount ? `<span class="badge">${dcount}</span>` : ""}
-          <span class="glyph">${s.glyph}</span>
-          <span class="name">${s.name}</span>
-          <div class="lvl">${lit ? `Level ${lv.level}${lv.challenge ? " 🚀" : ""}` : "Tap to start"}</div>
-          <div class="stars-row">${lv ? "⭐".repeat(Math.min(5, lv.stars)) : ""}</div>
-        </div>`;
-      }).join("")}
-    </div></div>
+    ${subjectMap(childId, c, due)}
     <div class="card" style="cursor:pointer" onclick="startSession('${childId}','explore')">
       <div class="row spread"><div><b>🔭 Explore Anything</b><br>
       <small class="dim">Why is the sky blue? How do volcanoes work? Ask away!</small></div><span style="font-size:1.6em">→</span></div>

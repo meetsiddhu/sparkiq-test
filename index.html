@@ -328,6 +328,29 @@ ul.clean { list-style: none; } ul.clean li { padding: 6px 0; border-bottom: 1px 
 .pfill { height: 100%; border-radius: 999px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
 .chip.on { background: var(--accent-2); color: #fff; font-weight: 700; }
 
+/* ---------- Duolingo/Reading-Eggs-style life: screen transitions + mascot ---------- */
+#app.screen-in { animation: screenIn .34s cubic-bezier(.22,1,.36,1); }
+@keyframes screenIn { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+
+.hero-greet { display: flex; align-items: center; gap: 14px; padding: 16px 20px; }
+.hero-greet p { margin: 0; }
+.mascot { flex: none; width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 2.1em; background: radial-gradient(circle at 35% 28%, #ffffffaa, transparent 60%), var(--pcol, var(--spark));
+  box-shadow: 0 6px 18px -4px var(--pcol, var(--spark)); transform-origin: 50% 90%;
+  animation: mascotIdle 3.2s ease-in-out infinite; }
+@keyframes mascotIdle { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-7px) rotate(2deg); } }
+.hero-greet:hover .mascot { animation: mascotHi .5s ease; }
+@keyframes mascotHi { 0%,100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-10px) rotate(-10deg) scale(1.06); } 60% { transform: translateY(-4px) rotate(8deg); } }
+
+/* a little more spring on the playful cards */
+.tile-pop:active { transform: scale(.98); }
+.card { transition: transform .14s cubic-bezier(.34,1.56,.64,1), border-color .2s; }
+
+@media (prefers-reduced-motion: reduce) {
+  #app.screen-in { animation: none; }
+  .mascot { animation: none; }
+}
+
 </style>
 </head>
 <body>
@@ -2167,7 +2190,7 @@ function blankState() {
     sessions: [], summaries: {}, safety: [],
     northStar: { diag: 0, second: 0 },
     meter: { date: "", turns: {} },
-    settings: { engine: "local", provider: "anthropic", endpoint: "", key: "", model: "", supaUrl: "", supaKey: "" },
+    settings: { engine: "local", provider: "anthropic", endpoint: "", key: "", model: "", supaUrl: "", supaKey: "", voiceName: "" },
     freeSubject: {},
     custom: [], // teacher/tutor-authored exercises (parent-PIN-gated to add)
     daily: {},  // Daily Spark: { childId: { last: "YYYY-MM-DD", days: [dates], intention: "" } }
@@ -2260,7 +2283,7 @@ function dueReviews(childId) { return S.review.filter(r => r.childId === childId
 
 /* ---------- DOM helpers ---------- */
 const app = document.getElementById("app");
-function render(html) { app.innerHTML = html; window.scrollTo(0, 0); }
+function render(html) { app.innerHTML = html; window.scrollTo(0, 0); app.classList.remove("screen-in"); void app.offsetWidth; app.classList.add("screen-in"); }
 function modal(html, onMount) {
   const veil = document.createElement("div");
   veil.className = "modal-veil";
@@ -2337,7 +2360,12 @@ const TTS = {
   /* Pick the MOST NATURAL voice available (not just the first one that loads — that's usually
      the robotic "compact" voice). Rank premium/neural/enhanced/Siri highest, then known
      good natural voices, preferring en-AU then en-GB. Cached; re-picked when voices load. */
+  enVoices() { if (!this.voices.length) this.load(); return (this.voices || []).filter(x => /^en(-|_|$)/i.test(x.lang || "")); },
   pickVoice() {
+    // A parent/kid's explicit pick always wins (the ranking can only choose among what the DEVICE has —
+    // if every installed voice is robotic, let them audition and pick; guide them to install a better one).
+    const chosen = S.settings && S.settings.voiceName;
+    if (chosen) { const m = (this.voices.length ? this.voices : (this.load(), this.voices)).find(x => x.name === chosen); if (m) return m; }
     if (this._chosen) return this._chosen;
     if (!this.voices.length) this.load();
     const v = this.voices; if (!v.length) return null;
@@ -2606,7 +2634,28 @@ function screenProgress(childId) {
       <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="small ${c.focus ? "primary" : "ghost"}" onclick="kidToggleFocus('${childId}')">🎯 Focus mode: ${c.focus ? "on" : "off"}</button>
         <button class="small ${c.sound === false ? "ghost" : "primary"}" onclick="kidToggleSound('${childId}')">🔊 Sound: ${c.sound === false ? "off" : "on"}</button></div>
-      <p class="dim" style="margin-top:6px"><small>Focus mode makes it calmer and quieter — good if you're older or want fewer celebrations.</small></p></div>`);
+      <p class="dim" style="margin-top:6px"><small>Focus mode makes it calmer and quieter — good if you're older or want fewer celebrations.</small></p></div>
+    ${voiceChooserCard(childId)}`);
+}
+function voiceChooserCard(childId) {
+  const list = TTS.enVoices();
+  if (!list.length) return "";
+  const cur = (S.settings.voiceName) || "";
+  const opts = `<option value="">Auto (best available)</option>` +
+    list.map(v => `<option value="${esc(v.name)}" ${cur === v.name ? "selected" : ""}>${esc(v.name)} — ${esc(v.lang)}${v.localService ? " · on-device" : ""}</option>`).join("");
+  return `<div class="card"><h3>🔊 My voice</h3>
+    <p class="dim"><small>Pick the voice you like best, then tap ▶ to hear it. If they all sound robotic, a grown-up can download a better one (iPad/Mac: Settings → Accessibility → Spoken Content → add an <b>Enhanced</b> or <b>Siri</b> voice) — it'll appear here.</small></p>
+    <div class="row" style="gap:8px;margin-top:6px;align-items:center">
+      <select id="voice-pick" onchange="setVoice('${childId}')" style="flex:1">${opts}</select>
+      <button class="small primary" onclick="sampleVoice()">▶ Hear</button></div></div>`;
+}
+function setVoice(childId) { const el = document.getElementById("voice-pick"); if (!el) return; S.settings.voiceName = el.value; TTS._chosen = null; save(); sampleVoice(); }
+function sampleVoice() {
+  const el = document.getElementById("voice-pick");
+  const name = el ? el.value : "";
+  const v = name ? TTS.enVoices().find(x => x.name === name) : TTS.pickVoice();
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance("Hi! I'm Spark. Let's learn something awesome together!");
+    if (v) { u.voice = v; u.lang = v.lang; } u.rate = 0.98; u.pitch = 1.05; speechSynthesis.speak(u); } catch (e) {}
 }
 function setDailyGoal(childId, n) { const c = S.children.find(x => x.id === childId); if (!c) return; c.dailyGoal = n; save(); screenProgress(childId); }
 function kidToggleFocus(childId) { const c = S.children.find(x => x.id === childId); if (!c) return; c.focus = !c.focus; save(); screenProgress(childId); }
@@ -2635,7 +2684,7 @@ function screenHome(childId) {
         <span class="chip gem" id="gemchip" onclick="screenShop('${childId}')" style="cursor:pointer">💎 ${gemsOf(childId)}</span>
       </span>
     </div>
-    <div class="card" style="padding:16px 20px"><p>${esc(greet)}</p></div>
+    <div class="card hero-greet"><span class="mascot" style="--pcol:${(personaById(c.persona)||{}).color||'#7c83ff'}">${(personaById(c.persona)||{}).emoji||'⭐'}</span><p>${esc(greet)}</p></div>
     ${(() => { const d = dailyState(childId); const done = dailyDoneToday(childId);
       const wk = d.days.filter(x => (Date.now() - new Date(x).getTime()) < 7 * 864e5).length;
       const dots = Array.from({length:7}, (_,i)=>`<span class="daydot ${i < wk ? "on":""}"></span>`).join("");

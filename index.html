@@ -4796,7 +4796,8 @@ function parentGate() {
     <div class="pin-pad" id="pp">
       ${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-n="${n}">${n}</button>`).join("")}
       <button data-n="c">⌫</button><button data-n="0">0</button><button data-n="x">✕</button>
-    </div>`);
+    </div>
+    <p style="text-align:center;margin-top:10px"><button class="ghost small" onclick="forgotPin()">Forgot PIN?</button></p>`);
   v.querySelector("#pp").onclick = async e => {
     const n = e.target.dataset?.n; if (!n) return;
     if (n === "x") return v.remove();
@@ -4808,6 +4809,32 @@ function parentGate() {
       else { entered = ""; v.querySelectorAll("#pd span").forEach(s => s.classList.remove("on"));
         v.querySelector("h2").textContent = "Not quite — try again 🔐"; }
     }
+  };
+}
+/* Forgot-PIN reset — kid-resistant: you must know the parent EMAIL this account was created with.
+   (Payments stay manual and settings are low-stakes, so email-knowledge is a reasonable gate for the
+   pilot; once magic-link cloud sign-in is on, being signed in is the stronger proof.) */
+function forgotPin() {
+  const signedIn = (typeof syncSignedIn === "function") && syncSignedIn();
+  const v = modal(`<h2 style="text-align:center">Reset your PIN 🔑</h2>
+    <p class="dim" style="text-align:center">${signedIn
+      ? "You're signed in to cloud backup, so you can set a new PIN now."
+      : "To prove you're the grown-up, type the <b>parent email</b> this account was set up with."}</p>
+    ${signedIn ? "" : `<label>Parent email</label><input id="fp-email" type="email" placeholder="you@example.com">`}
+    <label>New 4-digit PIN</label><input id="fp-pin" inputmode="numeric" maxlength="4" placeholder="••••">
+    <div id="fp-msg" class="dim" style="margin-top:6px"></div>
+    <div class="actions" style="margin-top:10px"><button class="primary" id="fp-go">Set new PIN</button>
+    <button class="ghost" onclick="this.closest('.modal-veil').remove()">Cancel</button></div>`);
+  v.querySelector("#fp-go").onclick = async () => {
+    const pin = (v.querySelector("#fp-pin").value || "").trim();
+    const msg = v.querySelector("#fp-msg");
+    if (!/^\d{4}$/.test(pin)) { msg.textContent = "PIN must be exactly 4 digits."; return; }
+    if (!signedIn) {
+      const email = (v.querySelector("#fp-email").value || "").trim().toLowerCase();
+      if (!S.family || email !== (S.family.email || "").trim().toLowerCase()) { msg.textContent = "That email doesn't match this account."; return; }
+    }
+    S.family.pinHash = await hashPin(pin); save();
+    v.remove(); screenParent("overview");
   };
 }
 function screenParent(tab) {

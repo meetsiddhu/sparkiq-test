@@ -4947,6 +4947,7 @@ function parentTab(tab) {
         <li>${p.aiTurnsPerDay} learning turns/day</li><li>Up to ${p.children} children</li></ul>
         ${cur !== id ? `<div class="actions"><button class="primary" onclick="switchPlan('${id}')">Select</button></div>` : ""}
       </div>`).join("")}</div>
+      <p class="dim" style="margin-top:10px"><small>💡 A private tutor in Australia costs about $55–130 an hour. The Family plan is a whole year of unlimited learning for less than the cost of two of those hours.</small></p>
       <p class="dim" style="margin-top:12px"><small><b>Pilot note:</b> billing is handled personally by invoice during the pilot — no payment ever happens inside the app,
       and children can never reach this screen (PIN-gated). Prices are config-driven pilot hypotheses (${CONFIG.currency}).</small></p></div>`;
   }

@@ -487,6 +487,17 @@ const CONFIG = {
     free:   { label: "Free",   subjects: 1,    aiTurnsPerDay: 10, children: 4, priceMonthly: 0,  priceYearly: 0 },
     family: { label: "Family", subjects: "all", aiTurnsPerDay: 200, children: 4, priceMonthly: 12, priceYearly: 99 },
   },
+  /* ---------- TURN ON REVENUE (see SETUP-FOR-FOUNDER.md) ----------
+     Leave `url` empty and the app runs as a free pilot: nothing is gated, no upsell ever.
+     Paste your Stripe Payment Link into `url` and revenue mode switches on automatically:
+     new families get a `trialDays` full-access free trial, then Maths stays free and the
+     other subjects wait behind a gentle, parent-only upgrade. After paying, a parent types
+     one of `codes` to unlock Family forever on that device. That's the whole money system. */
+  checkout: {
+    url: "",                 // ← your Stripe Payment Link (e.g. https://buy.stripe.com/xxxxxxxx). Empty = free pilot.
+    trialDays: 14,           // full-access free trial once revenue mode is on
+    codes: ["SPARKFAMILY"],  // ← the access code(s) you hand paying customers. Change to your own secret word(s).
+  },
   sessionXpCap: 1000,          // a full ~1hr class should keep rewarding (Aishu: don't stop early)
   xpCorrect: 10,
   xpAttempt: 4,
@@ -2458,13 +2469,40 @@ function useTurn(childId) {
   S.meter.turns[childId] = (S.meter.turns[childId] || 0) + 1; save();
   return S.meter.turns[childId];
 }
-function tier() { return CONFIG.tiers[S.family?.plan || "free"]; }
+/* ---------- Revenue: trial → gentle paywall → paid unlock (DECISIONS #60).
+   Revenue mode is OFF until a Stripe Payment Link is set in CONFIG.checkout.url — until then
+   the app is a free pilot with nothing gated (behaviour identical to before). Once a link is set,
+   every new family gets a full-access free trial, then Family becomes a paid unlock. All the paid
+   value is delivered by the app's own tutor — no server needed to earn; Stripe holds the money. */
+function monetiseOn() { return !!(CONFIG.checkout && CONFIG.checkout.url); }
+function planStatus() {
+  const f = S.family || {};
+  if (!monetiseOn()) return { plan: "family", state: "pilot" };      // free pilot: full access, no upsell
+  if (f.licensed) return { plan: "family", state: "active" };
+  const start = f.trialStart || f.createdAt || Date.now();
+  const daysLeft = Math.ceil((start + CONFIG.checkout.trialDays * 864e5 - Date.now()) / 864e5);
+  if (daysLeft > 0) return { plan: "family", state: "trial", daysLeft };
+  return { plan: "free", state: "expired" };
+}
+function tier() { return CONFIG.tiers[planStatus().plan] || CONFIG.tiers.free; }
 function subjectAllowed(childId, subjectId) {
-  // Pilot / offline engine serves at ~$0, so every subject is open to explore (DECISIONS #30).
-  // The tier gate is kept for a future remote/paid config but never locks the local pilot.
-  if (S.settings.engine === "local" || tier().subjects === "all") return true;
-  const free = S.freeSubject[childId];
-  return !free || free === subjectId;
+  if (tier().subjects === "all") return true;   // family / trial / free-pilot: everything open
+  const free = S.freeSubject[childId] || "maths"; // free tier after trial: Maths stays free forever
+  return free === subjectId;
+}
+function openCheckout() {
+  if (!CONFIG.checkout.url) return;
+  try { window.open(CONFIG.checkout.url, "_blank", "noopener"); } catch (e) { location.href = CONFIG.checkout.url; }
+}
+function redeemCode(fromId) {
+  const el = document.getElementById(fromId || "lic-code");
+  const code = (el ? el.value : "").trim();
+  if (!code) return;
+  const ok = (CONFIG.checkout.codes || []).some(c => c && c.toUpperCase() === code.toUpperCase());
+  if (!ok) return modal(`<h2>Hmm, that code didn't work</h2><p>Double-check the code from your payment confirmation (spaces and capitals don't matter). Still stuck? Email us and we'll sort it out.</p><div class="actions"><button class="primary" onclick="this.closest('.modal-veil').remove()">Try again</button></div>`);
+  S.family.licensed = true; S.family.licenseCode = code; S.family.licensedAt = Date.now(); save();
+  confetti();
+  modal(`<h2>🎉 You're on Family!</h2><p>Every subject is unlocked for all your learners, for good, on this device. Thank you for supporting ${esc(S.children[0] ? S.children[0].nickname : "your learner")}'s learning.</p><div class="actions"><button class="primary" onclick="this.closest('.modal-veil').remove();screenParent('plan')">Done</button></div>`);
 }
 /* ---------- 💎 Gems: earned by learning, spent on cosmetics. Earn-only, never lost. ---------- */
 function gemsOf(childId) { S.gems = S.gems || {}; return S.gems[childId] || 0; }
@@ -2704,7 +2742,7 @@ async function finishParentSetup() {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return modal(`<h2>Almost!</h2><p>Please enter a valid email address.</p>`);
   if (!/^\d{4}$/.test(pin)) return modal(`<h2>Almost!</h2><p>The PIN needs to be exactly 4 digits.</p>`);
   if (!consent) return modal(`<h2>One more thing</h2><p>The consent checkbox is required — SparkIQ is designed around verifiable parental consent.</p>`);
-  S.family = { id: uuid(), email, pinHash: await hashPin(pin), plan: "free", createdAt: Date.now(), consent: true };
+  S.family = { id: uuid(), email, pinHash: await hashPin(pin), plan: "free", createdAt: Date.now(), trialStart: Date.now(), consent: true };
   save();
   screenAddChild(true);
 }
@@ -5422,21 +5460,7 @@ function parentTab(tab) {
       <p><b>For kids:</b> Spark remembers what you're learning so it can help you better — like a tutor with a good memory. It never shares your chats, and your grown-up can see how you're going (but not spy on your words).</p>
       <p class="dim"><small>Designed against the Australian Privacy Principles and the direction of Australia's Children's Online Privacy Code. Formal policy documents require review by qualified counsel before public launch.</small></p></div>`;
   }
-  if (tab === "plan") {
-    const t = CONFIG.tiers, cur = S.family.plan;
-    return `<div class="card"><h2>Plan</h2>
-      <div class="grid2">
-      ${Object.entries(t).map(([id, p]) => `<div class="card" style="margin:0;${cur === id ? "border-color:var(--spark)" : ""}">
-        <h2>${p.label} ${cur === id ? '<span class="tag">current</span>' : ""}</h2>
-        <p style="font-size:1.4em;font-weight:800">${p.priceMonthly ? `$${p.priceMonthly}/mo <small class="dim">or $${p.priceYearly}/yr</small>` : "Free"}</p>
-        <ul class="clean"><li>${p.subjects === "all" ? "All 8 learning areas" : p.subjects + " learning area"}</li>
-        <li>${p.aiTurnsPerDay} learning turns/day</li><li>Up to ${p.children} children</li></ul>
-        ${cur !== id ? `<div class="actions"><button class="primary" onclick="switchPlan('${id}')">Select</button></div>` : ""}
-      </div>`).join("")}</div>
-      <p class="dim" style="margin-top:10px"><small>💡 A private tutor in Australia costs about $55–130 an hour. The Family plan is a whole year of unlimited learning for less than the cost of two of those hours.</small></p>
-      <p class="dim" style="margin-top:12px"><small><b>Pilot note:</b> billing is handled personally by invoice during the pilot — no payment ever happens inside the app,
-      and children can never reach this screen (PIN-gated). Prices are config-driven pilot hypotheses (${CONFIG.currency}).</small></p></div>`;
-  }
+  if (tab === "plan") return planTab();
   if (tab === "teach") {
     const subs = SUBJECTS.filter(s => s.id !== "explore");
     const list = (S.custom || []);
@@ -5593,6 +5617,50 @@ function switchPlan(id) {
   S.family.plan = id; save();
   modal(`<h2>Plan updated ✔</h2><p>You're on <b>${CONFIG.tiers[id].label}</b>. During the pilot, billing is arranged personally — nothing is charged by the app.</p>`);
   screenParent("plan");
+}
+/* Parent-only plan screen. Two modes:
+   • Free pilot (no payment link set) → the old invoice-during-pilot view.
+   • Revenue mode (payment link set) → trial status + secure Stripe checkout + code unlock. */
+function planTab() {
+  const fam = CONFIG.tiers.family, ps = planStatus();
+  const valueLine = `<p class="dim" style="margin-top:10px"><small>💡 A private tutor in Australia costs about $55–130 an hour. Family is a whole year of unlimited learning for less than two of those hours — and the tutor never clocks off.</small></p>`;
+  if (!monetiseOn()) {
+    // Free pilot: unchanged behaviour (self-select, personal invoicing).
+    const cur = S.family.plan;
+    return `<div class="card"><h2>Plan</h2>
+      <div class="grid2">
+      ${Object.entries(CONFIG.tiers).map(([id, p]) => `<div class="card" style="margin:0;${cur === id ? "border-color:var(--spark)" : ""}">
+        <h2>${p.label} ${cur === id ? '<span class="tag">current</span>' : ""}</h2>
+        <p style="font-size:1.4em;font-weight:800">${p.priceMonthly ? `$${p.priceMonthly}/mo <small class="dim">or $${p.priceYearly}/yr</small>` : "Free"}</p>
+        <ul class="clean"><li>${p.subjects === "all" ? "All 8 learning areas" : p.subjects + " learning area"}</li>
+        <li>${p.aiTurnsPerDay} learning turns/day</li><li>Up to ${p.children} children</li></ul>
+        ${cur !== id ? `<div class="actions"><button class="primary" onclick="switchPlan('${id}')">Select</button></div>` : ""}
+      </div>`).join("")}</div>${valueLine}
+      <p class="dim" style="margin-top:12px"><small><b>Pilot note:</b> billing is handled personally by invoice during the pilot — no payment happens inside the app,
+      and children can never reach this screen (PIN-gated). Prices are config-driven (${CONFIG.currency}). To take payments automatically, see SETUP-FOR-FOUNDER.md.</small></p></div>`;
+  }
+  // Revenue mode.
+  const statusCard = ps.state === "active"
+    ? `<div class="card" style="border-color:var(--good)"><h2>✅ Family — active</h2><p class="dim">Every subject is unlocked on this device. Thank you for supporting your learner!</p></div>`
+    : ps.state === "trial"
+    ? `<div class="card" style="border-color:var(--spark)"><h2>✨ Free trial</h2><p><b>${ps.daysLeft} day${ps.daysLeft !== 1 ? "s" : ""} left</b> of full access to every subject. No card needed for the trial — upgrade any time to keep everything after it ends.</p></div>`
+    : `<div class="card" style="border-color:var(--accent)"><h2>Your free trial has ended</h2><p class="dim">Maths stays free forever. Upgrade to Family to reopen every other subject — all your learner's progress is safe and waiting.</p></div>`;
+  const showUpgrade = ps.state !== "active";
+  return `${statusCard}
+    <div class="card"><h2>${fam.label} — ${CONFIG.currency} $${fam.priceYearly}/year <small class="dim">(or $${fam.priceMonthly}/mo)</small></h2>
+      <ul class="clean"><li>✅ All 8 learning areas (Maths, English, Sciences, Wellbeing, Thinking, Heart Smarts + more)</li>
+      <li>✅ Unlimited adaptive practice & the step-by-step tutor</li>
+      <li>✅ Up to ${fam.children} learners · full progress for parents</li>
+      <li>✅ Private by design — nothing sold, no ads, ever</li></ul>
+      ${valueLine}
+      ${showUpgrade ? `<div class="actions" style="margin-top:12px"><button class="spark" onclick="openCheckout()">Upgrade to Family — secure checkout →</button></div>
+      <p class="dim" style="margin-top:8px"><small>Payment is handled securely by Stripe in a new tab — SparkIQ never sees your card. After paying you'll get an access code.</small></p>
+      <div style="margin-top:14px;border-top:1px solid rgba(255,255,255,.10);padding-top:12px">
+        <label>Already paid? Enter your access code</label>
+        <div class="row" style="gap:8px"><input id="lic-code" placeholder="e.g. ${(CONFIG.checkout.codes || [""])[0]}" style="flex:1"><button class="primary" onclick="redeemCode('lic-code')">Unlock</button></div>
+      </div>` : ""}
+    </div>
+    <p class="dim"><small>Prices in ${CONFIG.currency}. Children can never reach this screen (PIN-gated) and never see a purchase prompt.</small></p>`;
 }
 function cloudCard() {
   const st = S.settings;

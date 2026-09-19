@@ -5540,6 +5540,12 @@ function costThisMonth() { const mk = todayKey().slice(0, 7); return (S.cost && 
    Output passes the safety filter before returning. Mirrors the production /api/llm router. */
 async function callRemoteRaw(sysPrompt, userText, child) {
   const st = S.settings;
+  // Never let a child's nickname leave the device — even if they type it themselves.
+  S.children.forEach(k => {
+    if (!k.nickname || k.nickname.length < 2) return;
+    const re = new RegExp(k.nickname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+    sysPrompt = String(sysPrompt).replace(re, "the student"); userText = String(userText).replace(re, "the student");
+  });
   const childId = child && child.id;
   const inTok = estTokens(sysPrompt) + estTokens(userText);
   try {
@@ -5760,7 +5766,8 @@ function parentTab(tab) {
       <p><b>What we collect about your child:</b> a nickname, their school year, and which curriculum they follow. That's the lot.</p>
       <p><b>What we never collect:</b> real name, school, address, phone, photos, location. The app won't even ask.</p>
       <p><b>Where data lives:</b> your child's progress stays <b>on this device</b>. Only two things ever leave it:
-      (1) when the AI helper is on, the question your child types is sent securely through SparkIQ's own server to an AI model to get an answer — never their name, and SparkIQ doesn't keep it;
+      (1) when the AI helper is on, the question your child types is sent securely through SparkIQ's own server to an AI service to get an answer — never their name (we remove it even if they type it), and SparkIQ doesn't keep it.
+      <b>During this free trial the AI service is Google's free Gemini service</b>, which may use questions to improve Google's products and may have people review them (not linked to your family). We're moving to Cloudflare Workers AI, which doesn't use them for training. Prefer no AI? Choose <b>Built-in (offline)</b> in the <b>🤖 AI</b> tab — the tutor still works fully;
       (2) if anyone taps the 💬 <b>Feedback</b> button, we receive an anonymous rating (kids send only a face, tap-reasons and their school year — no name, no typing) or a grown-up's note.
       Your email is kept only so we can contact you during the pilot.</p>
       <p><b>What we store about learning:</b> progress numbers and short session summaries ("worked on fractions") — not chat transcripts.</p>
@@ -5888,6 +5895,7 @@ function bindAiTab() {
   eng.onchange = () => document.getElementById("ai-remote").style.display = eng.value === "remote" ? "block" : "none";
   document.getElementById("ai-save").onclick = () => {
     S.settings.engine = eng.value;
+    S.settings.aiOptOut = eng.value === "local"; // a parent's "offline only" must survive reloads (owner config never overrides it)
     if (eng.value === "remote") {
       S.settings.provider = document.getElementById("ai-provider").value;
       S.settings.endpoint = document.getElementById("ai-endpoint").value.trim();
@@ -6172,7 +6180,7 @@ async function loadOwnerConfig() {
       S.settings.provider = "proxy";
       S.settings.endpoint = j.ai.endpoint;
       S.settings.proxyKey = j.ai.supaKey || "";
-      S.settings.engine = j.ai.on ? "remote" : "local";
+      S.settings.engine = j.ai.on && !S.settings.aiOptOut ? "remote" : "local"; // parent opt-out always wins
       save();
     }
   } catch (e) { /* offline / local file:// / not deployed → keep baked defaults */ }

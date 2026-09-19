@@ -1,5 +1,5 @@
 {
-  "_readme": "OWNER SWITCH. checkout.url empty = FREE PILOT (nothing locked) — good for gathering free users & reviews. To take real payments later, put your live Stripe link in checkout.url (test link was https://buy.stripe.com/test_fZu6oJggG1dpg0O1nHfnO00). ai.on=true routes the tutor's open-ended answers through YOUR Supabase Edge Function (Gemini key stays server-side). Set ai.on=false to run fully offline. See SETUP-FOR-FOUNDER.md.",
+  "_readme": "OWNER SWITCH. checkout.url empty = FREE PILOT (nothing locked) — good for gathering free users & reviews. To take real payments later, put your live Stripe link in checkout.url (test link was https://buy.stripe.com/test_fZu6oJggG1dpg0O1nHfnO00). ai.on=true routes the tutor's open-ended answers through YOUR Supabase Edge Function to your Cloudflare Worker (Workers AI; no keys in the app). Set ai.on=false to run fully offline. See SETUP-FOR-FOUNDER.md.",
   "checkout": {
     "url": "",
     "trialDays": 14,

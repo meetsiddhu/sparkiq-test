@@ -410,7 +410,8 @@ html.young .mascot, html.light .mascot { box-shadow: 0 8px 22px -6px var(--pcol,
 .pnode.current .pbub { animation: nodePulse 1.6s ease-in-out infinite; border-color: var(--accent); }
 @keyframes nodePulse { 0%,100% { box-shadow: 0 8px 16px -6px rgba(28,60,120,.4); } 50% { box-shadow: 0 0 0 8px rgba(28,176,246,.25); } }
 .pmascot { position: absolute; top: -22px; right: -14px; font-size: .7em; animation: mascotIdle 2.6s ease-in-out infinite; }
-.pnode .badge { position: absolute; top: -6px; left: -6px; background: var(--warn); color: #fff; border-radius: 999px; min-width: 22px; height: 22px; display: grid; place-items: center; font-size: .6em; font-weight: 800; }
+.pnode .badge { position: absolute; top: -6px; left: -6px; background: var(--warn); color: #fff; border-radius: 999px; min-width: 22px; height: 22px; padding: 0 5px; display: grid; place-items: center; font-size: .6em; font-weight: 800; white-space: nowrap; }
+.pnode.lit .badge { background: var(--good); }
 @media (prefers-reduced-motion: reduce) { .pnode.current .pbub, .pmascot { animation: none; } }
 
 /* ---------- Scratchpad workspace (draw/work out a problem; on-device only) ---------- */
@@ -425,6 +426,24 @@ html.young .mascot, html.light .mascot { box-shadow: 0 8px 22px -6px var(--pcol,
 @keyframes breatheOrb { 0%,100% { transform: scale(.55); opacity: .7; } 45%,55% { transform: scale(1.25); opacity: 1; } }
 .breathe-orb { font-size: 4.2em; display: inline-block; animation: breatheOrb 5.2s ease-in-out infinite; filter: drop-shadow(0 0 16px var(--spark)); }
 @media (prefers-reduced-motion: reduce) { .breathe-orb { animation: none; } }
+
+/* ---------- Value-first taster year picker (big, low-friction, one-tap) ---------- */
+.yearpick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px auto 0; max-width: 420px; }
+@media (min-width: 480px) { .yearpick { grid-template-columns: repeat(5, 1fr); } }
+.ybtn { font-weight: 800; font-size: 1.05em; padding: 16px 0; min-height: 60px; }
+.ybtn:hover { background: #2b3578; border-color: var(--accent); }
+
+/* ---------- Just-in-time coachmark (one-time contextual tip, points at the action dock) ---------- */
+.coachtip { position: fixed; left: 50%; bottom: calc(104px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  z-index: 40; width: min(92%, 460px); background: linear-gradient(135deg, var(--accent-2), #5560e8); color: #fff;
+  border-radius: 16px; padding: 14px 16px; box-shadow: 0 16px 44px -8px rgba(0,0,0,.55);
+  display: flex; flex-direction: column; gap: 10px; animation: coachpop .3s cubic-bezier(.34,1.56,.64,1); }
+.coachtip::after { content: ""; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%) rotate(45deg);
+  width: 18px; height: 18px; background: #5560e8; border-radius: 3px; }
+.coachtip-body { font-size: .95em; line-height: 1.45; }
+.coachtip-body b { color: #fff8dc; }
+.coachtip button { align-self: flex-end; background: #fff; color: #2a3f6b; border: none; font-weight: 800; }
+@keyframes coachpop { from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(.96); } to { opacity: 1; transform: translateX(-50%); } }
 
 /* ---------- Accessibility baseline (NN/g kids-UX: motion + keyboard) ---------- */
 /* Honour a child's OS "reduce motion" everywhere: kill decorative loops & transitions,
@@ -2647,6 +2666,7 @@ const STT = {
    ONBOARDING
    ============================================================ */
 function screenWelcome() {
+  cleanupDemo(); // clear any leftover sample-lesson data from a previous visit
   render(`
     <div style="text-align:center;padding:40px 0 10px">
       <div style="font-size:4em">⭐</div>
@@ -2654,8 +2674,13 @@ function screenWelcome() {
       <p class="dim" style="max-width:420px;margin:10px auto">One friendly learning companion across every subject —
       tuned to the Australian curriculum, built privacy-first.</p>
     </div>
+    <div class="card tile-pop" style="cursor:pointer;border-color:var(--spark)" onclick="startTaster()">
+      <div class="row spread"><div><b>✨ Try a sample lesson first</b><br>
+      <small class="dim">No sign-up, no details — see it in action in about a minute.</small></div>
+      <button class="spark small">Try it →</button></div>
+    </div>
     <div class="card">
-      <h2>For parents, first 👋</h2>
+      <h2>Set up to save progress 👋</h2>
       <p class="dim">Quick setup (about a minute). SparkIQ stores learning data <b>on this device only</b> —
       we never ask for your child's real name, school or photo.</p>
       <label>Your email <span class="hint">(the only real-world detail we keep — for pilot contact)</span></label>
@@ -2696,7 +2721,7 @@ function screenAddChild(first) {
       <input id="ch-nick" maxlength="20" placeholder="e.g. Rocket, Jazzy, Meg">
       <div class="grid2">
         <div><label>School year</label>
-          <select id="ch-year">${Array.from({length:10},(_,i)=>`<option value="${i+3}">Year ${i+3}</option>`).join("")}</select></div>
+          <select id="ch-year">${Array.from({length:10},(_,i)=>`<option value="${i+3}" ${S._tasterYear===i+3?"selected":""}>Year ${i+3}</option>`).join("")}</select></div>
         <div><label>Curriculum</label>
           <select id="ch-curr">${CURRICULA.map(c=>`<option value="${c.id}">${c.label}</option>`).join("")}</select></div>
       </div>
@@ -2730,10 +2755,55 @@ function finishAddChild() {
   screenHome(child.id);
 }
 
+/* ---------- Value-first sample lesson (NN/g/Duolingo: let them feel the value BEFORE the form).
+   A parent-driven anonymous taster — no child PII, no consent needed (the grown-up is evaluating),
+   nothing kept. One tap (year) → the real diagnostic mini-lesson → a win → invite to set up.
+   Runs on an ephemeral "demo" child that is wiped on exit and on the next visit. ---------- */
+function startTaster() {
+  cleanupDemo();
+  render(`
+    <div class="topbar"><span class="brand">Spark<span class="iq">IQ</span></span>
+      <button class="ghost small" onclick="screenWelcome()">← Back</button></div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:2.6em">⭐</div>
+      <h2>Let's try a quick spark!</h2>
+      <p class="dim" style="max-width:420px;margin:8px auto 0">No sign-up and nothing saved. Just tap a school year and have a go — about a minute.</p>
+      <div class="yearpick">
+        ${Array.from({ length: 10 }, (_, i) => i + 3).map(y => `<button class="ybtn" onclick="runTaster(${y})">Year ${y}</button>`).join("")}
+      </div>
+    </div>
+    <p class="footer-note">This is a sample for grown-ups — nothing is stored.</p>`);
+}
+function runTaster(year) {
+  cleanupDemo();
+  const persona = "spark";
+  S.children.push({
+    id: "demo", nickname: "Explorer", year: Number(year),
+    curriculum: (CURRICULA[0] || { id: "nsw" }).id, persona, avatar: personaById(persona).emoji,
+    young: year <= 5, readAloud: false, demo: true,
+  });
+  S._tasterYear = Number(year); save();
+  startSession("demo", "maths", "diagnostic"); // the real mini-lesson, unchanged
+}
+function finishTaster() {
+  SES = null; cleanupDemo();
+  modal(`<h2>🌟 That's SparkIQ!</h2>
+    <p>Nice work. Setup takes about a minute — free, private, all on this device — and your learner gets their own buddy, saved progress and every subject.</p>
+    <div class="actions"><button class="primary" onclick="this.closest('.modal-veil').remove();screenWelcome()">Set up free →</button></div>`);
+}
+function cleanupDemo() {
+  if (!S.children || !S.children.some(c => c.id === "demo")) return;
+  S.children = S.children.filter(c => c.id !== "demo");
+  ["levels", "quizStats", "summaries", "review", "growth", "daily", "freeSubject"].forEach(k => { if (S[k]) delete S[k].demo; });
+  S.sessions = (S.sessions || []).filter(s => s.childId !== "demo");
+  save();
+}
+
 /* ============================================================
    PROFILES & HOME
    ============================================================ */
 function screenProfiles() {
+  cleanupDemo();
   if (!S.family) return screenWelcome();
   if (!S.children.length) return screenAddChild(true);
   document.documentElement.classList.remove("young");
@@ -2859,7 +2929,8 @@ function screenProgress(childId) {
         <div><div style="font-size:1.6em;font-weight:800;color:var(--good)">🌱 ${totalDays}</div><small class="dim">learning days</small></div>
         <div><div style="font-size:1.6em;font-weight:800">🏅 ${badges.length}</div><small class="dim">badges</small></div>
       </div></div>
-    <div class="card" style="padding:10px 16px"><b>Your subjects</b> <small class="dim">— watch these bars grow!</small></div>
+    <div class="card"><div class="row spread"><b>🗺️ Your learning journey</b> <small class="dim">tap a stop to jump in</small></div>
+      ${progressJourney(childId, c)}</div>
     ${subjectCards}
     ${badges.length ? `<div class="card"><h3>🏅 Badges you've earned</h3><div class="row" style="flex-wrap:wrap;gap:6px">${badges.map(b => `<span class="tag">🏅 ${esc(b)}</span>`).join("")}</div></div>` : ""}
     <div class="card"><h3>⚙️ My settings</h3>
@@ -2871,6 +2942,28 @@ function screenProgress(childId) {
         <button class="small ghost" onclick="toggleAppearance(function(){screenProgress('${childId}')})">${S.settings.appearance === "light" ? "🌙 Dark mode" : "☀️ Light mode"}</button></div>
       <p class="dim" style="margin-top:6px"><small>Focus mode makes it calmer and quieter — good if you're older or want fewer celebrations.</small></p></div>
     ${voiceChooserCard(childId)}`);
+}
+/* Progress screen "map": every subject as a stop on one winding path (Duolingo/Prodigy-style
+   journey, not a bare % bar). Practised stops light up + show level + a ⭐ mastered-count badge;
+   not-started stops sit dim ahead; the last-played stop pulses as "you are here". Reuses the
+   existing .path/.pnode component (was young-home-only). Tap a stop to jump straight in. */
+function progressJourney(childId, c) {
+  const subs = SUBJECTS.filter(s => s.id !== "explore");
+  const levels = S.levels[childId] || {};
+  const stats = (S.quizStats || {})[childId] || {};
+  const masteredCount = sid => Object.entries(stats)
+    .filter(([k, st]) => subjectOfSkill(k) === sid && st.a >= 2 && (st.c / st.a) >= 0.8).length;
+  const isDone = s => ((levels[s.id] || {}).diag === "done");
+  const ordered = [...subs.filter(isDone), ...subs.filter(s => !isDone(s))]; // travelled stops first
+  const cur = c.lastSubject;
+  return `<div class="path">${ordered.map(s => {
+    const lv = levels[s.id], lit = isDone(s), allowed = subjectAllowed(childId, s.id);
+    const mc = masteredCount(s.id), isCur = s.id === cur;
+    const onclick = allowed ? `startSession('${childId}','${s.id}')` : "lockedMsg()";
+    return `<div class="pnode ${lit ? "lit" : ""} ${allowed ? "" : "locked"} ${isCur ? "current" : ""}" onclick="${onclick}">
+      <div class="pbub"><span class="pglyph">${s.glyph}</span>${mc ? `<span class="badge">${mc}⭐</span>` : ""}${isCur ? `<span class="pmascot">${(personaById(c.persona) || {}).emoji || "⭐"}</span>` : ""}</div>
+      <div class="pname">${s.name}${lit ? `<br>Lv ${lv.level}${lv.challenge ? " 🚀" : ""}` : `<br><span class="dim">${allowed ? "start here" : "🔒 locked"}</span>`}</div></div>`;
+  }).join("")}</div>`;
 }
 /* Subjects as a game-style PATH for young kids (Duolingo/Reading-Eggs), tile grid for older. */
 function subjectMap(childId, c, due) {
@@ -3329,6 +3422,8 @@ function presentItem(item, isRepeat) {
     if (SES.mode === "learn") acts.push(["🎓 Tutor me", () => startTutor()]); // flowing Socratic tutoring
     acts.push(["🧰 Tools", () => openTools()]);
     setActions(acts);
+    if (SES.mode === "learn") coachTip(SES.childId, "learnHelp",
+      "💡 Stuck on one? Tap <b>Hint</b> for a clue, or <b>🎓 Tutor me</b> to be walked through it step by step. Asking for help is what great learners do!");
   }
   SES.qStart = Date.now(); // pace clock: how long this question takes (continuous learner model)
 }
@@ -3495,6 +3590,24 @@ function starEarned() {
   SES.correctStreak = 0;
 }
 
+/* Just-in-time coachmark (NN/g: teach a control in-context the first time it appears, once —
+   never an upfront tutorial wall). Shows one friendly bubble per (child,key), then never again.
+   Stored on the child record (c.tips) so it's per-learner and survives reloads. No data leaves. */
+function coachTip(childId, key, html) {
+  const c = S.children.find(x => x.id === childId); if (!c) return;
+  c.tips = c.tips || {};
+  if (c.tips[key]) return;
+  c.tips[key] = 1; save();
+  document.querySelector(".coachtip")?.remove();
+  const el = document.createElement("div");
+  el.className = "coachtip";
+  el.innerHTML = `<div class="coachtip-body">${html}</div><button class="small">Got it 👍</button>`;
+  const close = () => { if (el.isConnected) el.remove(); };
+  el.querySelector("button").onclick = close;
+  document.body.appendChild(el);
+  setTimeout(close, 10000);
+}
+
 /* ---------- Diagnostic ---------- */
 function beginDiagnostic() {
   say(`Let's find your perfect starting level in ${SUBJECTS.find(s=>s.id===SES.subject).name} — not too easy, not too hard, just right. ${CONFIG.diagnosticQuestions} quick questions, and guessing is totally fine!`);
@@ -3559,6 +3672,11 @@ function applySelfReport(adj) {
   say(adj < 0 ? `Thanks for telling me — we'll take it step by step and build your confidence. 💪`
     : adj > 0 ? `Love it — you're ready for a bit more. I'll keep it spicy! 🚀`
     : `Perfect — I'll keep it at that just-right pace. 🌟`);
+  if (SES.child.demo) { // taster: end on a high note and invite the (grown-up) to set up
+    setTimeout(() => { if (SES && SES.child && SES.child.demo) say(`That's the idea — I keep finding each learner's just-right level, every question. Ready to make it yours?`); }, 700);
+    setActions([["✨ Set up free to keep going →", () => finishTaster()]]);
+    return;
+  }
   setActions([["Let's learn! 🚀", () => { SES.mode = "learn"; beginLearn(); }], ["🧰 Tools", () => openTools()]]);
 }
 
@@ -4769,6 +4887,7 @@ function recordWish(childId, subject, wish) {
 /* ---------- End session ---------- */
 function endSession(afterNudge) {
   clearInterval(window._nudge); clearInterval(SES?.examTimer); TTS.stop();
+  if (SES && SES.child && SES.child.demo) return finishTaster(); // taster: exit invites setup, keeps nothing
   if (SES) {
     SES.sessionRow.end = Date.now();
     const skills = [...SES.skillsSeen].slice(0, 3);

@@ -143,6 +143,11 @@ label .hint { font-weight: 400; color: var(--ink-dim); font-size: .85em; }
 .msg .mini { display:block; margin-top:6px; font-size:.82em; color: var(--ink-dim); }
 .opts { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 0 6px; max-width: 86%; }
 .opts button { text-align: left; }
+/* Young-learner number keypad */
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 320px; margin: 4px auto 0; }
+.keypad .key { font-size: 1.6em; font-weight: 800; padding: 14px 0; min-height: 58px; text-align: center; }
+.keypad .key.go { background: linear-gradient(180deg, var(--spark), var(--spark-2)); color: #20180a; }
+.keypad .key.del { font-size: 1.3em; }
 .actions { display: flex; gap: 10px; }
 .actions button { flex: 1; }
 .inputbar { display: flex; gap: 8px; margin-top: 10px; }
@@ -420,6 +425,26 @@ html.young .mascot, html.light .mascot { box-shadow: 0 8px 22px -6px var(--pcol,
 @keyframes breatheOrb { 0%,100% { transform: scale(.55); opacity: .7; } 45%,55% { transform: scale(1.25); opacity: 1; } }
 .breathe-orb { font-size: 4.2em; display: inline-block; animation: breatheOrb 5.2s ease-in-out infinite; filter: drop-shadow(0 0 16px var(--spark)); }
 @media (prefers-reduced-motion: reduce) { .breathe-orb { animation: none; } }
+
+/* ---------- Accessibility baseline (NN/g kids-UX: motion + keyboard) ---------- */
+/* Honour a child's OS "reduce motion" everywhere: kill decorative loops & transitions,
+   hide purely-decorative stars/confetti. Content stays; only movement stops. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  #stars, #confetti { display: none !important; }
+}
+/* Visible keyboard focus for kids/carers navigating without a mouse — buttons and
+   tappable cards/chips had none. Only shows for keyboard focus, never mouse taps. */
+:focus-visible { outline: 3px solid var(--spark); outline-offset: 2px; }
+button:focus-visible, .tile-pop:focus-visible, .card[onclick]:focus-visible,
+.chip[onclick]:focus-visible, .pp:focus-visible, .pnode:focus-visible {
+  outline: 3px solid var(--spark); outline-offset: 3px; border-radius: 12px;
+}
 
 </style>
 </head>
@@ -3089,6 +3114,32 @@ function sys(text) {
   const d = document.createElement("div"); d.className = "msg sys"; d.textContent = text;
   m.appendChild(d); d.scrollIntoView({ behavior: "smooth", block: "end" });
 }
+/* Young-learner number keypad: big tap targets for numeric answers (no fiddly typing). */
+const KEYPAD_MODES = { diagnostic: 1, learn: 1, quiz: 1, review: 1, daily: 1 };
+function isIntegerAnswer(item) {
+  if (!item || item.opts) return false;
+  const a = String(item.answer == null ? "" : item.answer).trim();
+  return a !== "" && /^\d{1,7}$/.test(a); // non-negative whole numbers (fractions/decimals/negatives → text input)
+}
+function renderKeypad() {
+  const o = document.getElementById("opts"); if (!o) return;
+  o.innerHTML = "";
+  const pad = document.createElement("div"); pad.className = "keypad";
+  ["1","2","3","4","5","6","7","8","9","⌫","0","✓"].forEach(k => {
+    const b = document.createElement("button");
+    b.className = "key" + (k === "✓" ? " go" : k === "⌫" ? " del" : "");
+    b.textContent = k;
+    b.onclick = () => {
+      const inp = document.getElementById("kidin"); if (!inp) return;
+      if (k === "⌫") inp.value = inp.value.slice(0, -1);
+      else if (k === "✓") submitKid();
+      else inp.value += k;
+    };
+    pad.appendChild(b);
+  });
+  o.appendChild(pad);
+  o.scrollIntoView({ behavior: "smooth", block: "end" });
+}
 function setOpts(list) { /* multiple-choice buttons */
   const o = document.getElementById("opts"); if (!o) return;
   o.innerHTML = "";
@@ -3266,7 +3317,11 @@ function presentItem(item, isRepeat) {
   if (!isRepeat) say(item.q, SES.mode === "exam" ? null : item.skillName);
   else say("Here it is again: " + item.q);
   if (item.opts) { setOpts(item.opts); showInput(false); }
-  else { setOpts([]); showInput(true); document.getElementById("kidin").focus(); }
+  else if (SES.child.young && KEYPAD_MODES[SES.mode] && isIntegerAnswer(item)) {
+    // Young learners: a big tap keypad beats a fiddly text field for number answers (IXL/Reading-Eggs).
+    setOpts([]); showInput(true); renderKeypad(); /* no auto-focus: keypad is the input, don't pop the OS keyboard */
+  }
+  else { setOpts([]); showInput(true); const k = document.getElementById("kidin"); if (k) k.focus(); }
   if (SES.mode === "exam") { setActions([["Skip →", () => recordExam(false, true)]]); startExamClock(); }
   else if (SES.mode === "selmock") { setActions([["Skip →", () => recordMock(false)], ["💡 Hint", () => giveHint()]]); startExamClock(); }
   else {

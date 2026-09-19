@@ -454,6 +454,8 @@ const SUBJECTS = [
   { id: "chemistry",     name: "Chemistry",         glyph: "🧪" },
   { id: "biology",       name: "Biology",           glyph: "🌱" },
   { id: "behaviour",     name: "Wellbeing",         glyph: "🧭" },
+  { id: "empathy",       name: "Heart Smarts",      glyph: "❤️" },
+  { id: "thinking",      name: "Thinking Skills",   glyph: "🧩" },
   { id: "communication", name: "Communication",     glyph: "🎤" },
   { id: "explore",       name: "Explore Anything",  glyph: "🔭" },
 ];
@@ -498,6 +500,7 @@ const TOPICS = {
   chemistry: { "3-4": ["States of matter", "Mixing"], "5-6": ["Solutions", "Simple reactions"], "7-8": ["Particle theory", "Periodic table"], "9-10": ["Chemical reactions", "Acids & bases"], "11-12": ["Equilibrium", "Reaction rates"] },
   biology: { "3-4": ["Living things", "Habitats"], "5-6": ["Body systems", "Adaptations"], "7-8": ["Cells", "Interdependence"], "9-10": ["Genetics", "Evolution"], "11-12": ["Cell biology", "Inheritance"] },
   behaviour: { "3-4": ["Big feelings", "Being a good friend"], "5-6": ["Growth mindset", "Handling mistakes"], "7-8": ["Managing stress", "Study habits"], "9-10": ["Exam stress", "Setbacks"], "11-12": ["Balance & pressure"] },
+  empathy: { "3-4": ["How others feel", "Being kind"], "5-6": ["Seeing their side", "Including everyone"], "7-8": ["Reading the room", "Fairness"], "9-10": ["Different perspectives", "Standing up kindly"], "11-12": ["Compassion & judgement"] },
   communication: { "3-4": ["Sharing & turns", "Listening"], "5-6": ["Active listening", "Explaining ideas"], "7-8": ["Group work", "Giving feedback"], "9-10": ["Presentations", "Arguing a case"], "11-12": ["Negotiation"] },
   explore: { "3-4": ["Why is the sky blue?", "Dinosaurs"], "5-6": ["Black holes", "Volcanoes"], "7-8": ["How money works", "Why we dream"], "9-10": ["How the internet works"], "11-12": ["The brain & memory"] },
 };
@@ -1450,6 +1453,28 @@ const BANKS = {
     { band: 4, skill: "Inheritance", q: `DNA is copied during which process, before a cell divides?`, opts: ["Replication", "Digestion", "Respiration", "Evaporation"], a: 0,
       hints: ["The prefix means 'making a copy'.", "Re-______."], worked: `DNA replication copies the genetic code before division.`, real: `How one cell becomes trillions in a growing body.`, trick: `Replication = making a replica.` },
   ],
+  empathy: [
+    { band: 0, skill: "How others feel", q: `Your friend's pet rabbit just died and they are very quiet. They probably feel…`, opts: ["Excited", "Sad and lonely", "Hungry", "Bored"], a: 1,
+      hints: ["Imagine losing something you love.", "Quiet often means a big feeling inside."], worked: `Losing a pet hurts — reading that quiet as sadness is empathy: sensing how someone else feels.`, real: `Noticing a friend's feeling is the first step to helping them.`, trick: `Ask yourself: "How would I feel if that were me?"` },
+    { band: 0, skill: "Being kind", q: `You have two stickers and your friend has none and looks left out. The kindest thing is to…`, opts: ["Keep both", "Offer to share one", "Show off yours", "Hide them"], a: 1,
+      hints: ["How would you feel with none?", "Sharing turns two smiles from one."], worked: `Sharing when someone has nothing shows you care about their feelings, not just your own.`, real: `Small acts of sharing are how kids build real friendships.`, trick: `Kindness costs little and means a lot.` },
+    { band: 1, skill: "Seeing their side", q: `A classmate got the answer wrong and some kids laughed. How do they most likely feel?`, opts: ["Proud", "Embarrassed and hurt", "Delighted", "Nothing at all"], a: 1,
+      hints: ["Picture it happening to you.", "Being laughed at stings."], worked: `Imagining their embarrassment is perspective-taking — and it's why we don't join the laughing.`, real: `Everyone gets things wrong; empathy is remembering that when it's someone else's turn.`, trick: `Before you laugh, swap places in your head.` },
+    { band: 1, skill: "Including everyone", q: `Two friends are picking teams and one kid is always chosen last and looks down. A caring move is…`, opts: ["Pick them early and say they're welcome", "Ignore it", "Pick them last again", "Laugh"], a: 0,
+      hints: ["What would lift that kid up?", "Being wanted feels good."], worked: `Choosing them early and welcoming them shows you noticed their feeling and acted on it.`, real: `One included kid today is often a lifelong friend tomorrow.`, trick: `Look for who's being left out — then include them.` },
+    { band: 2, skill: "Reading the room", q: `You're bursting with happy news, but your friend just failed a test and looks upset. The kind thing is to…`, opts: ["Shout your news loudly anyway", "Check on them first, share your news later", "Tell them to cheer up", "Ignore how they feel"], a: 1,
+      hints: ["Whose moment is it right now?", "Good news can wait; a hurting friend can't."], worked: `Reading the moment and putting their feelings first is mature empathy — timing kindness matters.`, real: `Knowing WHEN to say something is as caring as what you say.`, trick: `Match the moment: read the room before you speak.` },
+    { band: 2, skill: "Fairness", q: `In group work you did most of the effort, but a quiet member says they found it hard to keep up. The fair, caring response is…`, opts: ["Blame them to the teacher", "Ask what part suits them and help them into it", "Do it all and resent them", "Ignore them"], a: 1,
+      hints: ["People fall behind for reasons.", "Curiosity beats blame."], worked: `Assuming a reason and offering a way in is both fair and empathetic — most people disengage when they feel lost, not lazy.`, real: `The best team members lift others rather than write them off.`, trick: `Ask "what's going on for you?" before you judge.` },
+    { band: 3, skill: "Different perspectives", q: `Your friend is upset about something that wouldn't bother you at all. The empathetic view is…`, opts: [`"You're overreacting."`, `"It matters to you, so it matters — tell me more."`, `"Get over it."`, `"That's silly."`], a: 1,
+      hints: ["Feelings don't need to be logical to be real.", "Their scale isn't your scale."], worked: `Empathy means honouring THEIR feelings even when you'd feel differently — not measuring their reaction against your own.`, real: `Understanding that people experience things differently is the heart of real friendship and leadership.`, trick: `You don't have to agree to understand.` },
+    { band: 3, skill: "Standing up kindly", q: `You see a group teasing someone online. The most caring AND wise action is…`, opts: ["Join in so you fit in", "Don't pile on; check on the person privately and tell a trusted adult if it's serious", "Screenshot and laugh", "Ignore it completely"], a: 1,
+      hints: ["Think about the person being hurt.", "You can help without making it worse."], worked: `Refusing to pile on, quietly supporting the target, and getting an adult for serious harm is how you show courage and care safely.`, real: `Most bullying stops faster when even one bystander refuses to join in.`, trick: `Don't be a bystander — be a quiet ally.` },
+    { band: 4, skill: "Compassion & judgement", q: `A classmate is often grumpy and you just learned they care for a sick parent at home. The wise response is…`, opts: ["Decide they're just rude", "Give them more patience — you rarely know someone's full story", "Avoid them", "Tell everyone their business"], a: 1,
+      hints: ["What might be under the behaviour?", "Everyone carries things you can't see."], worked: `Extending patience once you glimpse someone's hidden load — and keeping it private — is mature compassion.`, real: `"Be kind, for everyone is fighting a hard battle" is a rule that ages well.`, trick: `Behaviour is often the tip of an iceberg.` },
+    { band: 4, skill: "Compassion & judgement", q: `A friend confides they're struggling and asks you not to tell anyone. They mention they sometimes feel hopeless. The caring thing is to…`, opts: ["Keep the secret no matter what", "Listen, take it seriously, and gently encourage them to talk to a trusted adult — and tell one yourself if they're in danger", "Change the subject", "Tell the whole class"], a: 1,
+      hints: ["Some worries are too big to carry alone.", "Real care sometimes means getting grown-up help."], worked: `Listening without judgement AND making sure a trusted adult knows when someone feels hopeless is the most caring thing you can do — safety comes before secrecy.`, real: `You can be a great friend and still get help; if you're ever worried about someone, Kids Helpline is 1800 55 1800.`, trick: `A caring friend gets help — that's loyalty, not betrayal.` },
+  ],
   behaviour: [
     { band: 0, skill: "Big feelings", q: `You feel really angry after losing a game. What helps FIRST?`, opts: ["Yell at the winner", "Take slow breaths and count to five", "Quit forever", "Blame the rules"], a: 1,
       hints: ["Your brain needs a moment to calm before words work.", "Something with breathing…"], worked: `Slow breaths calm your body so your thinking brain comes back.`, real: `Elite athletes breathe between points for this reason.`, trick: `Name it to tame it: "I'm angry" + 5 slow breaths.` },
@@ -1624,6 +1649,10 @@ const TEACH = {
   "biology:Genetics": `🧬 You inherit two copies of each gene, one per parent. A Punnett square is just a tidy grid of the four possible combinations. For two Bb parents, one box in four is bb — that's where the 3:1 ratio comes from.`,
 
   /* ---- Wellbeing & communication ---- */
+  "empathy:How others feel": `❤️ Empathy starts with a question: "How would I feel if that were me?" People show feelings in quiet ways — a slumped shoulder, a short answer, going silent. Reading those clues, then caring about what you read, is a superpower you can practise like any other.`,
+  "empathy:Seeing their side": `🔄 Perspective-taking means stepping into someone else's shoes for a moment. The same event can feel totally different from where THEY stand. You don't have to agree with someone to understand them — and once you understand, you almost always treat them better.`,
+  "empathy:Different perspectives": `🌍 Feelings don't have to be logical to be real. Something that wouldn't bother you at all can genuinely hurt someone else — because they're not you. Honouring that ("it matters to you, so it matters") is deeper than being "right". Understand first; judge later, if at all.`,
+  "empathy:Compassion & judgement": `🧊 Behaviour is the tip of an iceberg — most of what drives someone sits out of sight. The grumpy kid might be carrying something heavy at home. Compassion is choosing patience before conclusions. And real care sometimes means helping a friend reach a trusted adult — safety comes before keeping a secret.`,
   "behaviour:Growth mindset": `🌱 Your brain is a muscle, not a fixed size. "I can't do this" slams a door; "I can't do this YET" leaves it open. That one word turns a verdict into a stage on a journey — and the science shows it genuinely lifts results.`,
   "behaviour:Managing stress": `🧩 A huge task feels impossible because your brain sees the whole mountain at once. The fix: chunk it, then start ONE chunk. Momentum beats motivation — action shrinks the mountain far faster than worry does.`,
   "communication:Active listening": `👂 Real listening isn't waiting for your turn to talk. It's facing the person, and asking a follow-up question that proves you heard. WAIT — "Why Am I Talking?" — and listen twice as much as you speak.`,
@@ -2284,6 +2313,39 @@ function levelsFor(childId, subject) {
   if (lv.selfReport === undefined) lv.selfReport = null;
   return lv;
 }
+/* ---------- Continuous learner model: monitor skill level + pace, answer by answer.
+   The diagnostic only BOOTSTRAPS a working band; real learning happens here. We keep a short
+   rolling window of recent outcomes per subject and, on a cooldown (so it tracks ability without
+   yo-yoing), nudge the working band up after a run of success or down after a genuine struggle.
+   Pace = an exponential moving average of time-on-correct-answers (a fair read of fluency), used
+   both to gate promotion (fast+accurate is readier than slow+accurate) and to show parents.
+   No new data leaves the device — this derives entirely from answers the app already records. */
+const ADAPT_MODES = { learn: 1, quiz: 1, review: 1, daily: 1 };
+function paceLabel(ms) {
+  if (!ms) return null;
+  return ms < 9000 ? "fluent" : ms < 22000 ? "steady" : "careful";
+}
+function noteOutcome(childId, subject, correct, ms, fallbackBand) {
+  const lv = levelsFor(childId, subject);
+  lv.recent = (lv.recent || []).concat(correct ? 1 : 0).slice(-6);
+  // Pace: only count sane, engaged times on CORRECT answers (ignore idle/walk-away and misses).
+  if (correct && ms > 800 && ms < 90000) lv.paceMs = lv.paceMs ? Math.round(lv.paceMs * 0.7 + ms * 0.3) : ms;
+  lv.sinceAdj = (lv.sinceAdj || 0) + 1;
+  let delta = 0;
+  if (lv.recent.length >= 5 && lv.sinceAdj >= 5) {
+    const win = lv.recent.slice(-5);
+    const acc = win.reduce((a, b) => a + b, 0) / win.length;
+    const base = lv.workBand != null ? lv.workBand : (fallbackBand != null ? fallbackBand : 2);
+    // Promote on strong, reasonably fluent runs; ease back on a real struggle. Slow-but-correct
+    // (paceLabel "careful") holds steady rather than promoting — mastery, not lucky guesses.
+    const fluentEnough = paceLabel(lv.paceMs) !== "careful";
+    if (acc >= 0.8 && fluentEnough && base < 4) { lv.workBand = base + 1; delta = 1; }
+    else if (acc <= 0.4 && base > 0) { lv.workBand = base - 1; delta = -1; }
+    if (delta) { lv.sinceAdj = 0; lv.recent = []; }
+  }
+  save();
+  return delta;
+}
 /* ---------- Badges (positive-only; prototype's set, minus loss-framed streaks) ---------- */
 function awardBadge(childId, name) {
   S.badges = S.badges || {};
@@ -2622,6 +2684,8 @@ function subjLabel(id) {
 function masteryReport(childId) {
   const stats = (S.quizStats || {})[childId] || {};
   const levels = S.levels[childId] || {};
+  const kid = S.children.find(x => x.id === childId);
+  const yearBand = kid ? bandOf(kid.year) : 2;
   const bySubject = {};
   for (const [sid, st] of Object.entries(stats)) {
     if (!st.a) continue;
@@ -2640,9 +2704,17 @@ function masteryReport(childId) {
     const practise = skills.filter(x => x.a >= 2 && x.pct < 60).sort((a, b) => a.pct - b.pct).slice(0, 3);
     const col = pct >= 75 ? "var(--good)" : pct >= 50 ? "var(--spark)" : "var(--warn)";
     const L = subjLabel(subj);
+    // Continuous picture: where the moving working level sits vs the child's year, and how fluently.
+    const wb = lv && lv.workBand != null ? lv.workBand : null;
+    const levelMove = wb == null ? "" : wb > yearBand ? "📈 working above year level"
+      : wb < yearBand ? "🌱 consolidating below year level" : "🎯 working at year level";
+    const pl = lv && paceLabel(lv.paceMs);
+    const paceTxt = pl ? { fluent: "⚡ fluent pace", steady: "⏱️ steady pace", careful: "🐢 careful pace" }[pl] : "";
+    const monitor = [levelMove, paceTxt].filter(Boolean).join(" · ");
     return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)">
       <div class="row spread"><span>${L.glyph} <b>${esc(L.name)}</b> ${levelTag}</span><span style="color:${col};font-weight:800">${pct}%</span></div>
       <small class="dim">${totC}/${totA} correct · ${skills.length} concept${skills.length > 1 ? "s" : ""} practised</small>
+      ${monitor ? `<div style="margin-top:2px"><small class="dim">${monitor}</small></div>` : ""}
       ${strengths.length ? `<div style="margin-top:3px"><small>💪 Strong: ${strengths.map(x => `${esc(x.name)} (${x.pct}%)`).join(", ")}</small></div>` : ""}
       ${practise.length ? `<div style="margin-top:2px"><small>🎯 To practise: ${practise.map(x => `${esc(x.name)} (${x.pct}%)`).join(", ")}</small></div>` : ""}
     </div>`;
@@ -3075,6 +3147,13 @@ function checkBreakNudge() {
 function presentItem(item, isRepeat) {
   SES.item = item; SES.hintIdx = 0; SES.attempts = 0; SES.answered = false;
   SES.recentQs.push(item.q); SES.recentQs = SES.recentQs.slice(-60); // Aishu: avoid repeats far longer
+  /* The continuous model just moved this child's working level — tell them, gain-framed both ways. */
+  if (SES.levelDelta) {
+    const up = SES.levelDelta > 0; SES.levelDelta = 0;
+    say(up ? `🚀 You're on a roll, ${esc(SES.child.nickname)} — I'm stepping the questions up a notch. You've earned it!`
+           : `💛 Let's lock the foundations in with a couple of gentler ones — that's how the tricky stuff gets easy.`,
+        up ? "❤️ Level up!" : "🌱 Building strong roots");
+  }
   /* Intuition-first teach card: the first time a child meets a skill (or after they told us
      it was confusing), teach the CONCEPT before asking — hook → analogy → model. */
   if (!isRepeat && SES.mode === "learn") {
@@ -3101,6 +3180,7 @@ function presentItem(item, isRepeat) {
   if (SES.mode === "exam") { setActions([["Skip →", () => recordExam(false, true)]]); startExamClock(); }
   else if (SES.mode === "selmock") { setActions([["Skip →", () => recordMock(false)], ["💡 Hint", () => giveHint()]]); startExamClock(); }
   else setActions([["💡 Hint", () => giveHint()], ["🧰 Tools", () => openTools()]]);
+  SES.qStart = Date.now(); // pace clock: how long this question takes (continuous learner model)
 }
 function giveHint() {
   const it = SES.item; if (!it) return;
@@ -3161,7 +3241,9 @@ function handleAnswer(value, isTyped) {
       queueReview(it);
       offerRevision(it, () => nextLearn(it.skillId));
     } else {
-      say(GREETINGS.encourage() + " " + it.hints[Math.min(SES.hintIdx, it.hints.length - 1)]);
+      // Pace coaching: a very fast miss usually means racing, not "can't". Nudge, don't nag.
+      const rushed = SES.lastMs && SES.lastMs < 3500;
+      say((rushed ? `⏳ No rush — read it once more, slowly. ` : GREETINGS.encourage() + " ") + it.hints[Math.min(SES.hintIdx, it.hints.length - 1)]);
       SES.hintIdx = Math.min(SES.hintIdx + 1, it.hints.length);
       if (it.opts) setOpts(it.opts);
     }
@@ -3193,6 +3275,13 @@ function bumpStat(skillId, correct) {
   S.quizStats[SES.childId] = S.quizStats[SES.childId] || {};
   const st = S.quizStats[SES.childId][skillId] = S.quizStats[SES.childId][skillId] || { a: 0, c: 0 };
   st.a++; if (correct) st.c++;
+  // Continuously monitor level + pace on the core adaptive loop (not exams, which are fixed-length).
+  if (SES && ADAPT_MODES[SES.mode] && SUBJECTS.some(s => s.id === SES.subject)) {
+    const ms = Date.now() - (SES.qStart || Date.now());
+    SES.lastMs = ms;
+    const d = noteOutcome(SES.childId, SES.subject, correct, ms, SES.band);
+    if (d) SES.levelDelta = d; // announced on the next question (band is already updated)
+  }
   save();
 }
 function queueReview(it) {

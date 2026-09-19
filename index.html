@@ -407,6 +407,11 @@ html.young .mascot { box-shadow: 0 8px 22px -6px var(--pcol, var(--accent)); }
 .pad-col.on { box-shadow: 0 0 0 2px #1b2350; }
 #pad-canvas { flex: 1; width: 100%; touch-action: none; background: repeating-linear-gradient(#fff 0 27px, #eef2fb 27px 28px); cursor: crosshair; }
 
+/* ---------- Guided-breath healing moment ---------- */
+@keyframes breatheOrb { 0%,100% { transform: scale(.55); opacity: .7; } 45%,55% { transform: scale(1.25); opacity: 1; } }
+.breathe-orb { font-size: 4.2em; display: inline-block; animation: breatheOrb 5.2s ease-in-out infinite; filter: drop-shadow(0 0 16px var(--spark)); }
+@media (prefers-reduced-motion: reduce) { .breathe-orb { animation: none; } }
+
 </style>
 </head>
 <body>
@@ -2282,13 +2287,38 @@ function blankState() {
     daily: {},  // Daily Spark: { childId: { last: "YYYY-MM-DD", days: [dates], intention: "" } }
   };
 }
+const DB_BAK = "sparkiq_v1_bak"; // self-healing: last-known-good backup
 let S = load();
+let _saveN = 0;
 function load() {
-  try { const raw = localStorage.getItem(DB_KEY); if (raw) return Object.assign(blankState(), JSON.parse(raw)); }
-  catch (e) { console.warn("load failed", e); }
-  return blankState();
+  // Self-healing load: if the main blob is corrupt or partial (a killed tab mid-write,
+  // a browser quirk), fall back to the last-known-good backup rather than wiping a child's
+  // whole history to a blank slate. A kid never loses everything to one bad write.
+  const tryKey = k => {
+    try { const raw = localStorage.getItem(k); if (raw) return Object.assign(blankState(), JSON.parse(raw)); }
+    catch (e) { console.warn("load parse failed for " + k, e); }
+    return null;
+  };
+  return tryKey(DB_KEY) || tryKey(DB_BAK) || blankState();
 }
-function save() { localStorage.setItem(DB_KEY, JSON.stringify(S)); syncMaybePush(); }
+function save() {
+  try {
+    const str = JSON.stringify(S);
+    localStorage.setItem(DB_KEY, str);
+    // Keep a throttled last-known-good copy so a future corrupt/partial write can self-heal.
+    if ((++_saveN % 8) === 0) { try { localStorage.setItem(DB_BAK, str); } catch (e) {} }
+  } catch (e) {
+    console.warn("save failed", e);
+    // Quota / private-mode: shed the heaviest, least-critical history and retry once so the
+    // essential learning state (children, levels, mastery, reviews) still persists.
+    try {
+      if (Array.isArray(S.sessions) && S.sessions.length > 40) S.sessions = S.sessions.slice(-40);
+      if (Array.isArray(S.safety) && S.safety.length > 40) S.safety = S.safety.slice(-40);
+      localStorage.setItem(DB_KEY, JSON.stringify(S));
+    } catch (e2) { console.warn("save retry failed", e2); }
+  }
+  syncMaybePush();
+}
 function uuid() { return "id-" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
 function todayKey() { return new Date().toISOString().slice(0, 10); }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c])); }
@@ -3255,6 +3285,10 @@ function offerRevision(it, onNext) {
   setOpts([]); showInput(false);
   say(`No worries — the answer is ${it.answer}. Here's a way to get there:\n\n${it.worked}`);
   SES.missStreak = (SES.missStreak || 0) + 1;
+  // Healing loop: a real struggle spiral (3+ misses in a row) means the tutor is pushing too hard
+  // right now. Instead of grinding on, HEAL the moment — validate the child, ease the difficulty
+  // itself, offer a calming breath, then hand them a guaranteed easier win to rebuild confidence.
+  if (SES.missStreak >= 3) return healMoment(it, onNext);
   const trickLine = it.trick ? `\n\n🧠 Handy way to remember: ${it.trick}` : "";
   const acts = [["Try a similar one 💪", () => { SES.missStreak = 0; onNext(); }]];
   /* If they've missed a couple in a row, proactively offer a concept refresh. */
@@ -3270,6 +3304,42 @@ function offerRevision(it, onNext) {
 function afterWorked() {
   setOpts([]); showInput(false);
   setActions([["Try a similar one 💪", () => nextLearn(SES.item.skillId)], ["Something new →", () => nextLearn()]]);
+}
+/* ---------- Healing loop: recover a frustrated child (and self-correct difficulty) ---------- */
+function healMoment(it, onNext) {
+  SES.missStreak = 0;
+  // The tutor correcting ITSELF: ease the working band a step and lean gentler for a while, so the
+  // next questions meet the child where they are instead of where the diagnostic guessed.
+  const lv = SUBJECTS.some(s => s.id === SES.subject) ? levelsFor(SES.childId, SES.subject) : null;
+  if (lv && lv.workBand != null && lv.workBand > 0) { lv.workBand -= 1; lv.recent = []; lv.sinceAdj = 0; }
+  SES.child.easeUp = true; save();
+  setOpts([]); showInput(false);
+  const dry = SES.child.focus;
+  say(dry
+    ? `A few tough ones in a row — that's normal, and it's information, not a verdict. Let's reset with something more approachable and build back up.`
+    : `Hey ${esc(SES.child.nickname)} — a few tricky ones in a row happens to everyone, and it says nothing about how clever you are. 💛 Let's take a breath, then start with an easier win.`,
+    "🧠 Coach Sky", coachById("mind"));
+  const easier = () => { setActions([]); setOpts([]); SES.mode = "learn";
+    presentItem(Engine.question(SES.subject, learnBand(), { avoid: SES.recentQs, prefEasy: true })); };
+  setActions([
+    ["🫁 Take a calm breath", () => breatheModal(easier)],
+    ["I'm okay — easier one please →", easier],
+    ["🧰 Tools", () => openTools()],
+  ]);
+}
+/* A tiny guided-breath moment (kid-controlled — never forced). Reusable from Wellbeing too. */
+function breatheModal(done) {
+  const v = modal(`<div style="text-align:center;padding:6px 4px">
+    <div class="breathe-orb" aria-hidden="true">🫧</div>
+    <h2 id="br-cue" style="margin:14px 0 4px">Breathe in…</h2>
+    <p class="dim" style="margin:0 0 14px">Follow the bubble — in as it grows, out as it shrinks.</p>
+    <button class="spark" id="br-done">I'm ready 🌱</button></div>`);
+  v.dataset.lock = "1";
+  const cue = v.querySelector("#br-cue");
+  const cues = ["Breathe in…", "Hold…", "Breathe out…", "And again — in…", "Hold…", "Out…"];
+  let i = 0;
+  const tick = setInterval(() => { i = (i + 1) % cues.length; if (cue) cue.textContent = cues[i]; }, 2600);
+  v.querySelector("#br-done").onclick = () => { clearInterval(tick); v.remove(); done && done(); };
 }
 function bumpStat(skillId, correct) {
   S.quizStats[SES.childId] = S.quizStats[SES.childId] || {};
@@ -3376,12 +3446,20 @@ function beginLearn() {
   const sums = (S.summaries[SES.childId] || []).filter(s => s.subject === SES.subject);
   /* Rosenshine principle #1 — begin with a short review of previous learning. One quick
      warm-up question from a skill this child has practised before makes it stick. */
-  const past = Object.keys((S.quizStats || {})[SES.childId] || {}).filter(k =>
+  const stats = (S.quizStats || {})[SES.childId] || {};
+  const past = Object.keys(stats).filter(k =>
     k.startsWith(SES.subject + ":") || (SES.subject === "maths" && !k.includes(":")));
   if (past.length && !SES.warmedUp) {
     SES.warmedUp = true;
-    say(`⚡ Quick warm-up first, ${SES.child.nickname} — yesterday's brain-food makes today stick!`);
-    setTimeout(() => { SES.mode = "learn"; presentItem(Engine.question(SES.subject, learnBand(), { skillId: pick(past), avoid: SES.recentQs })); }, 800);
+    // Self-improving gap-heal: aim the warm-up at the WEAKEST practised skill (lowest accuracy with
+    // enough attempts), so the tutor keeps closing this child's real gaps — not just random review.
+    const weak = past.filter(k => stats[k].a >= 2).sort((a, b) => (stats[a].c / stats[a].a) - (stats[b].c / stats[b].a));
+    const target = (weak[0] && stats[weak[0]].c / stats[weak[0]].a < 0.7) ? weak[0] : pick(past);
+    const healing = target === weak[0] && weak.length;
+    say(healing
+      ? `⚡ Quick warm-up, ${SES.child.nickname} — let's give a tricky one from before another go. Getting it now is how it turns into a strength. 💪`
+      : `⚡ Quick warm-up first, ${SES.child.nickname} — yesterday's brain-food makes today stick!`);
+    setTimeout(() => { SES.mode = "learn"; presentItem(Engine.question(SES.subject, learnBand(), { skillId: target, avoid: SES.recentQs })); }, 800);
     return;
   }
   say(sums.length ? GREETINGS.returning(SES.child.nickname, sums[0].text) : `Level ${lv.level}${lv.challenge ? " · 🚀 working ahead" : ""}, here we come! Pick a topic below, or I'll surprise you.`);

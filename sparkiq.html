@@ -2345,7 +2345,7 @@ function blankState() {
     sessions: [], summaries: {}, safety: [],
     northStar: { diag: 0, second: 0 },
     meter: { date: "", turns: {} },
-    settings: { engine: "local", provider: "anthropic", endpoint: "", key: "", model: "", supaUrl: "", supaKey: "", voiceName: "", appearance: "dark" },
+    settings: { engine: "local", provider: "anthropic", endpoint: "", key: "", model: "", supaUrl: "", supaKey: "", proxyKey: "", voiceName: "", appearance: "dark" },
     freeSubject: {},
     custom: [], // teacher/tutor-authored exercises (parent-PIN-gated to add)
     daily: {},  // Daily Spark: { childId: { last: "YYYY-MM-DD", days: [dates], intention: "" } }
@@ -5279,7 +5279,9 @@ async function callRemoteRaw(sysPrompt, userText, child) {
          here — so this is the only child-safe way to ship AI without a key in the client. The
          optional "key" box, if filled, is sent as a shared secret header (not an API key). */
       const hdrs = { "content-type": "application/json" };
-      if (st.key) hdrs["x-sparkiq-secret"] = st.key;
+      const pk = st.proxyKey || st.supaKey || "";           // Supabase publishable key (safe in client)
+      if (pk) { hdrs["apikey"] = pk; hdrs["authorization"] = "Bearer " + pk; } // Supabase gateway routing
+      if (st.key) hdrs["x-sparkiq-secret"] = st.key;         // optional shared secret (PROXY_SECRET)
       const resp = await fetch(st.endpoint, {
         method: "POST", headers: hdrs,
         body: JSON.stringify({ system: sysPrompt, user: userText }),
@@ -5855,6 +5857,16 @@ async function loadOwnerConfig() {
     if (!r.ok) return;
     const j = await r.json();
     if (j && typeof j.checkout === "object") Object.assign(CONFIG.checkout, j.checkout);
+    /* Owner can also switch the AI tutor on for everyone here: point it at their own Supabase
+       Edge Function (the Gemini key stays server-side). The app stays parent-safe (daily caps,
+       distress routing, output filter all still apply). ai.on=false → fully offline. */
+    if (j && typeof j.ai === "object" && j.ai.endpoint) {
+      S.settings.provider = "proxy";
+      S.settings.endpoint = j.ai.endpoint;
+      S.settings.proxyKey = j.ai.supaKey || "";
+      S.settings.engine = j.ai.on ? "remote" : "local";
+      save();
+    }
   } catch (e) { /* offline / local file:// / not deployed → keep baked defaults */ }
 }
 

@@ -2285,7 +2285,16 @@ function blankState() {
     freeSubject: {},
     custom: [], // teacher/tutor-authored exercises (parent-PIN-gated to add)
     daily: {},  // Daily Spark: { childId: { last: "YYYY-MM-DD", days: [dates], intention: "" } }
+    growth: {}, // per-child healing/growth tallies (on-device): { childId: {eased, recovered, breaths} }
   };
+}
+/* Record a healing/growth moment so the app can SHOW parents it's adapting, and celebrate the
+   child's recovery. Aggregate counts only — no new personal data, nothing sent. */
+function noteGrowth(childId, kind) {
+  S.growth = S.growth || {};
+  const g = S.growth[childId] = S.growth[childId] || {};
+  g[kind] = (g[kind] || 0) + 1;
+  save();
 }
 const DB_BAK = "sparkiq_v1_bak"; // self-healing: last-known-good backup
 let S = load();
@@ -2724,7 +2733,19 @@ function masteryReport(childId) {
   }
   const order = Object.keys(bySubject).sort((a, b) => bySubject[b].reduce((t, x) => t + x.a, 0) - bySubject[a].reduce((t, x) => t + x.a, 0));
   if (!order.length) return `<small class="dim">No practice yet — this fills in as your child answers questions.</small>`;
-  return order.map(subj => {
+  // How the tutor is actively adapting to & caring for this child — visible proof of the "personal
+  // tutor that heals" (parents rarely SEE adaptive software work; this shows it).
+  const g = (S.growth || {})[childId] || {};
+  const care = [];
+  if (g.eased) care.push(`eased back when ${esc(kid ? kid.nickname : "they")} hit a tricky patch ${g.eased}×`);
+  if (g.recovered) care.push(`and they bounced back ${g.recovered}×`);
+  if (g.breaths) care.push(`took ${g.breaths} calm-breath reset${g.breaths > 1 ? "s" : ""}`);
+  const careBanner = care.length
+    ? `<div class="card" style="background:rgba(255,120,180,.10);border:1px solid rgba(255,120,180,.25);padding:10px 14px;margin-bottom:8px">
+        <b>💛 How SparkIQ is adapting to ${esc(kid ? kid.nickname : "your child")}</b>
+        <div style="margin-top:3px"><small class="dim">It ${care.join(", ")} — meeting them where they are, then building back up.</small></div></div>`
+    : "";
+  return careBanner + order.map(subj => {
     const skills = bySubject[subj];
     const totA = skills.reduce((t, x) => t + x.a, 0), totC = skills.reduce((t, x) => t + x.c, 0);
     const pct = Math.round(100 * totC / totA);
@@ -3180,9 +3201,14 @@ function presentItem(item, isRepeat) {
   /* The continuous model just moved this child's working level — tell them, gain-framed both ways. */
   if (SES.levelDelta) {
     const up = SES.levelDelta > 0; SES.levelDelta = 0;
-    say(up ? `🚀 You're on a roll, ${esc(SES.child.nickname)} — I'm stepping the questions up a notch. You've earned it!`
-           : `💛 Let's lock the foundations in with a couple of gentler ones — that's how the tricky stuff gets easy.`,
-        up ? "❤️ Level up!" : "🌱 Building strong roots");
+    // Recovery: promoting back up after we'd eased them down means they bounced back — name it,
+    // and log it so the parent can see the tutor's care actually worked.
+    const bouncedBack = up && SES.child.easeUp;
+    if (bouncedBack) { SES.child.easeUp = false; noteGrowth(SES.childId, "recovered"); save(); }
+    say(bouncedBack ? `🌟 You bounced back, ${esc(SES.child.nickname)}! From tricky to tackling the tougher ones — that's real resilience. 💛`
+        : up ? `🚀 You're on a roll, ${esc(SES.child.nickname)} — I'm stepping the questions up a notch. You've earned it!`
+             : `💛 Let's lock the foundations in with a couple of gentler ones — that's how the tricky stuff gets easy.`,
+        bouncedBack ? "🌟 Bounced back!" : up ? "❤️ Level up!" : "🌱 Building strong roots");
   }
   /* Intuition-first teach card: the first time a child meets a skill (or after they told us
      it was confusing), teach the CONCEPT before asking — hook → analogy → model. */
@@ -3313,6 +3339,7 @@ function healMoment(it, onNext) {
   const lv = SUBJECTS.some(s => s.id === SES.subject) ? levelsFor(SES.childId, SES.subject) : null;
   if (lv && lv.workBand != null && lv.workBand > 0) { lv.workBand -= 1; lv.recent = []; lv.sinceAdj = 0; }
   SES.child.easeUp = true; save();
+  noteGrowth(SES.childId, "eased");
   setOpts([]); showInput(false);
   const dry = SES.child.focus;
   say(dry
@@ -3339,7 +3366,7 @@ function breatheModal(done) {
   const cues = ["Breathe in…", "Hold…", "Breathe out…", "And again — in…", "Hold…", "Out…"];
   let i = 0;
   const tick = setInterval(() => { i = (i + 1) % cues.length; if (cue) cue.textContent = cues[i]; }, 2600);
-  v.querySelector("#br-done").onclick = () => { clearInterval(tick); v.remove(); done && done(); };
+  v.querySelector("#br-done").onclick = () => { clearInterval(tick); v.remove(); if (SES) noteGrowth(SES.childId, "breaths"); done && done(); };
 }
 function bumpStat(skillId, correct) {
   S.quizStats[SES.childId] = S.quizStats[SES.childId] || {};

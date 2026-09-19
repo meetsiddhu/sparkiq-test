@@ -133,7 +133,7 @@ label .hint { font-weight: 400; color: var(--ink-dim); font-size: .85em; }
 
 /* Chat */
 .chat-wrap { display: flex; flex-direction: column; min-height: calc(100vh - 120px); }
-.msgs { flex: 1; display: flex; flex-direction: column; gap: 12px; padding-bottom: 12px; }
+.msgs { flex: 0 1 auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 12px; }
 .msg { max-width: 86%; padding: 13px 17px; border-radius: var(--radius); white-space: pre-wrap; animation: pop .18s ease; }
 @keyframes pop { from { opacity: 0; transform: translateY(6px) } to { opacity: 1 } }
 .msg.spark-msg { background: var(--card); border: 1px solid rgba(255,255,255,.08); border-top-left-radius: 6px; align-self: flex-start; }
@@ -143,10 +143,17 @@ label .hint { font-weight: 400; color: var(--ink-dim); font-size: .85em; }
 .msg .mini { display:block; margin-top:6px; font-size:.82em; color: var(--ink-dim); }
 .opts { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 0 6px; max-width: 86%; }
 .opts button { text-align: left; }
-.actions { display: flex; gap: 10px; margin-top: 10px; }
+.actions { display: flex; gap: 10px; }
 .actions button { flex: 1; }
-.inputbar { display: flex; gap: 8px; margin-top: 10px; position: sticky; bottom: 12px; }
+.inputbar { display: flex; gap: 8px; margin-top: 10px; }
 .inputbar input { flex: 1; }
+/* Bottom DOCK: actions + input stay together, pinned to the bottom, content scrolls under a soft
+   fade. margin-top:auto pushes it down when the chat is short; sticky keeps it in view when long. */
+.dock { position: sticky; bottom: 0; margin-top: auto; display: flex; flex-direction: column;
+  padding: 12px 0 calc(6px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to top, var(--bg) 62%, transparent); z-index: 3; }
+/* leave room below the latest message/options so scrollIntoView(end) stops ABOVE the sticky dock */
+.msg, .opts { scroll-margin-bottom: 150px; }
 .timerchip { font-variant-numeric: tabular-nums; }
 .timerchip.hurry { color: var(--warn); }
 
@@ -3011,12 +3018,14 @@ function startSession(childId, subject, forceMode) {
     <div class="chat-wrap">
       <div class="msgs" id="msgs"></div>
       <div class="opts" id="opts"></div>
-      <div class="actions" id="acts"></div>
-      <div class="inputbar" id="ibar">
-        <input id="kidin" maxlength="${CONFIG.maxMsgLen}" placeholder="Type here…" autocomplete="off"
-          onkeydown="if(event.key==='Enter')submitKid()">
-        ${micButtonHtml(c)}
-        <button class="primary" onclick="submitKid()">Send</button>
+      <div class="dock">
+        <div class="actions" id="acts"></div>
+        <div class="inputbar" id="ibar">
+          <input id="kidin" maxlength="${CONFIG.maxMsgLen}" placeholder="Type here…" autocomplete="off"
+            onkeydown="if(event.key==='Enter')submitKid()">
+          ${micButtonHtml(c)}
+          <button class="primary" onclick="submitKid()">Send</button>
+        </div>
       </div>
     </div>`);
 
@@ -3089,6 +3098,8 @@ function setOpts(list) { /* multiple-choice buttons */
     b.onclick = () => { kidSay(t); handleAnswer(String(i)); };
     o.appendChild(b);
   });
+  // Scroll the options clear of the sticky dock so the last choice is never hidden.
+  if ((list || []).length) o.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 function setActions(list) { /* ≤2 actions, always */
   const a = document.getElementById("acts"); if (!a) return;
@@ -3897,12 +3908,14 @@ function renderSessionShell(c, label) {
     <div class="chat-wrap">
       <div class="msgs" id="msgs"></div>
       <div class="opts" id="opts"></div>
-      <div class="actions" id="acts"></div>
-      <div class="inputbar" id="ibar">
-        <input id="kidin" maxlength="${CONFIG.maxMsgLen}" placeholder="Type here…" autocomplete="off"
-          onkeydown="if(event.key==='Enter')submitKid()">
-        ${micButtonHtml(c)}
-        <button class="primary" onclick="submitKid()">Send</button>
+      <div class="dock">
+        <div class="actions" id="acts"></div>
+        <div class="inputbar" id="ibar">
+          <input id="kidin" maxlength="${CONFIG.maxMsgLen}" placeholder="Type here…" autocomplete="off"
+            onkeydown="if(event.key==='Enter')submitKid()">
+          ${micButtonHtml(c)}
+          <button class="primary" onclick="submitKid()">Send</button>
+        </div>
       </div>
     </div>`);
   clearInterval(window._nudge);

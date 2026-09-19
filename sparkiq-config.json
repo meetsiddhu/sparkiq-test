@@ -1,0 +1,8 @@
+{
+  "_readme": "OWNER SWITCH. To take real payments: (1) paste your Stripe Payment Link into url below, (2) set codes to your own secret word(s), (3) save. Leaving url empty keeps SparkIQ a free pilot with nothing locked. See SETUP-FOR-FOUNDER.md.",
+  "checkout": {
+    "url": "",
+    "trialDays": 14,
+    "codes": ["SPARKFAMILY"]
+  }
+}

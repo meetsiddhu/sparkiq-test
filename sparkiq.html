@@ -5845,9 +5845,23 @@ async function doSyncNow() {
 }
 function doSignOut() { syncSignOut(); screenParent("data"); }
 
+/* Owner-editable revenue switch (DECISIONS #61): an optional sparkiq-config.json served next to the
+   app lets the OWNER turn payments on for everyone by editing ONE file (e.g. GitHub's web editor) —
+   no rebuild, no developer in the loop. It's server-hosted, so customers can't edit it (no paywall
+   bypass, unlike a device-local setting). Missing or failed fetch → the baked CONFIG defaults. */
+async function loadOwnerConfig() {
+  try {
+    const r = await fetch("sparkiq-config.json", { cache: "no-store" });
+    if (!r.ok) return;
+    const j = await r.json();
+    if (j && typeof j.checkout === "object") Object.assign(CONFIG.checkout, j.checkout);
+  } catch (e) { /* offline / local file:// / not deployed → keep baked defaults */ }
+}
+
 /* ---------- Boot ---------- */
 starfield();
 (async () => {
+  await loadOwnerConfig();
   try { if (location.hash && /access_token=/.test(location.hash)) await syncCapture(); } catch (e) { console.warn("sync capture failed", e); }
   if (!S.family) screenWelcome(); else screenProfiles();
   // Signed-in returning visit (no magic-link hash): refresh from cloud in the background.

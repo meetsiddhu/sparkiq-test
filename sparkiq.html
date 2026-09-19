@@ -445,6 +445,35 @@ html.young .mascot, html.light .mascot { box-shadow: 0 8px 22px -6px var(--pcol,
 .coachtip button { align-self: flex-end; background: #fff; color: #2a3f6b; border: none; font-weight: 800; }
 @keyframes coachpop { from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(.96); } to { opacity: 1; transform: translateX(-50%); } }
 
+/* ---------- 💬 Feedback tab (every page) + form ---------- */
+#fb-fab { position: fixed; right: 0; top: 44%; z-index: 45; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  min-height: 0; padding: 10px 7px 10px 9px; border: none; border-radius: 14px 0 0 14px;
+  background: linear-gradient(135deg, var(--accent-2), #5560e8); color: #fff; font-weight: 800;
+  box-shadow: -4px 6px 18px rgba(0,0,0,.35); opacity: .93; transition: transform .15s ease, opacity .15s ease; }
+#fb-fab:hover { opacity: 1; transform: translateX(-3px); background: linear-gradient(135deg, var(--accent-2), #5560e8); }
+#fb-fab > span:first-child { font-size: 1.25em; line-height: 1; }
+.fb-fab-t { font-size: .6em; letter-spacing: .04em; writing-mode: vertical-rl; transform: rotate(180deg); }
+.fb-faces { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.fb-faces button { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 2em; padding: 12px 4px; min-height: 84px; }
+.fb-faces button span { font-size: .38em; font-weight: 700; color: var(--ink-dim); }
+.fb-faces button.on, html.light .fb-faces button.on, html.young .fb-faces button.on {
+  border-color: var(--spark); background: rgba(255,209,102,.20); transform: scale(1.04); }
+.fb-reasons { display: flex; flex-wrap: wrap; gap: 8px; }
+.fb-reasons .chip { cursor: pointer; border: 1px solid rgba(255,255,255,.14); }
+.chip.on, html.light .chip.on, html.young .chip.on { background: var(--accent-2); color: #fff; border-color: transparent; }
+
+/* ---------- ⭐ Player level bar (gain-only: never decays) + comeback welcome ---------- */
+.lvbar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin: 4px 0 2px; border-radius: var(--radius); cursor: pointer;
+  background: linear-gradient(90deg, rgba(255,209,102,.14), rgba(143,155,255,.10)); border: 1px solid rgba(255,209,102,.28); }
+.lvbadge { flex: none; font-weight: 900; font-size: .95em; padding: 8px 11px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--spark), var(--spark-2)); color: #3a2a00; box-shadow: 0 4px 12px rgba(255,184,77,.35); }
+.lvmain { flex: 1; min-width: 0; }
+.lvtop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.lvtrack { height: 10px; border-radius: 999px; background: rgba(255,255,255,.10); overflow: hidden; margin-top: 6px; }
+.lvfill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--spark), var(--good)); transition: width .6s cubic-bezier(.2,.8,.2,1); }
+html.light .lvtrack, html.young .lvtrack { background: #e3eaf7; }
+.card.comeback { background: linear-gradient(135deg, rgba(124,227,139,.18), rgba(255,209,102,.14)); border-color: rgba(124,227,139,.45); }
+
 /* ---------- Accessibility baseline (NN/g kids-UX: motion + keyboard) ---------- */
 /* Honour a child's OS "reduce motion" everywhere: kill decorative loops & transitions,
    hide purely-decorative stars/confetti. Content stays; only movement stops. */
@@ -1543,6 +1572,69 @@ const BANKS = {
       hints: ["What might be under the behaviour?", "Everyone carries things you can't see."], worked: `Extending patience once you glimpse someone's hidden load — and keeping it private — is mature compassion.`, real: `"Be kind, for everyone is fighting a hard battle" is a rule that ages well.`, trick: `Behaviour is often the tip of an iceberg.` },
     { band: 4, skill: "Compassion & judgement", q: `A friend confides they're struggling and asks you not to tell anyone. They mention they sometimes feel hopeless. The caring thing is to…`, opts: ["Keep the secret no matter what", "Listen, take it seriously, and gently encourage them to talk to a trusted adult — and tell one yourself if they're in danger", "Change the subject", "Tell the whole class"], a: 1,
       hints: ["Some worries are too big to carry alone.", "Real care sometimes means getting grown-up help."], worked: `Listening without judgement AND making sure a trusted adult knows when someone feels hopeless is the most caring thing you can do — safety comes before secrecy.`, real: `You can be a great friend and still get help; if you're ever worried about someone, Kids Helpline is 1800 55 1800.`, trick: `A caring friend gets help — that's loyalty, not betrayal.` },
+    /* ---- Heart Smarts expansion (DECISIONS #63): 2 → 8 per year band, with TEMPTING wrong answers
+       (the things kids genuinely do — "they'll ask if they want to", "it's only ice cream") so each
+       one makes a child stop and think. Options are shuffled at ask-time by Engine.question. ---- */
+    { band: 0, skill: "How others feel", q: `Mia drops her ice cream on the ground and her eyes go watery. She most likely feels…`, opts: [`Upset — she was looking forward to it`, `Fine, it's only ice cream`, `Angry at the ice cream`, `Glad she has less to eat`], a: 0,
+      hints: [`Watery eyes are a big clue.`, `How would you feel losing a treat you really wanted?`], worked: `Watery eyes plus a lost treat point to disappointment. Noticing the clue — instead of deciding "it's only ice cream" — is empathy.`, real: `Reading faces helps you know when a friend needs you.`, trick: `Look for clues: faces, voices, and what just happened.` },
+    { band: 0, skill: "Being kind", q: `A classmate forgot their lunch and their tummy is rumbling. A kind idea is…`, opts: [`Tell a teacher so they can help, or share something`, `Eat yours fast so they don't ask`, `Tell everyone they forgot`, `Say "that's your own fault"`], a: 0,
+      hints: [`What would help a hungry friend?`, `Teachers can help with this too.`], worked: `Getting help or sharing shows you care that they're hungry. Telling everyone would only embarrass them.`, real: `Schools have ways to help — telling a teacher is a kind move, not dobbing.`, trick: `Kind means help — not announce.` },
+    { band: 0, skill: "Including everyone", q: `You're playing tiggy and a new kid is watching from the side. You could…`, opts: [`Ask "Want to play? Be on my team!"`, `Keep playing — they'll ask if they want to`, `Tell them the game is full`, `Run past without looking`], a: 0,
+      hints: [`Is it easy to ask to join when you're new?`, `An invitation makes it easy.`], worked: `New kids often feel too shy to ask. Inviting them takes away the scary part.`, real: `Lots of best friendships start with one "want to play?"`, trick: `Don't wait to be asked — do the asking.` },
+    { band: 0, skill: "Seeing their side", q: `Your friend won't lend you their brand-new pencil case. Why might that be?`, opts: [`It's new and special to them`, `They must not like you any more`, `They're being mean on purpose`, `Pencil cases are boring`], a: 0,
+      hints: [`Is there a reason that isn't about you?`, `How do you feel about your own new things?`], worked: `People look after things that are new or special — it usually isn't about you. Thinking of their reason is seeing their side.`, real: `Not jumping to "they don't like me" saves lots of fights.`, trick: `Before you decide, ask: what's their reason?` },
+    { band: 0, skill: "Reading the room", q: `Your class goes quiet because a classmate is crying. A kind thing to do is…`, opts: [`Stay gentle, and quietly ask later if they're okay`, `Ask "Why are you crying?" in front of everyone`, `Tell a funny joke to cheer everyone up`, `Start chatting loudly again`], a: 0,
+      hints: [`Would you want everyone looking at you if you were crying?`, `Kindness can be quiet.`], worked: `A gentle, private check-in is kinder than questions in front of the whole class, even if the question is well meant.`, real: `Knowing when to be quiet is a real friendship skill.`, trick: `Big feelings? Go soft and private.` },
+    { band: 0, skill: "Fairness", q: `There are 3 biscuits and 3 friends, but you really want 2. The fair thing is…`, opts: [`One each`, `Take 2 because you're the hungriest`, `Whoever grabs fastest`, `Give them all to your best friend`], a: 0,
+      hints: [`Count them: 3 biscuits, 3 friends.`, `Fair means everyone's wants count.`], worked: `One each is fair — everyone's hunger counts the same as yours.`, real: `Being fair is how people learn to trust you.`, trick: `Fair = everyone counts, including me, but not more than them.` },
+    { band: 1, skill: "How others feel", q: `Sam's best friend is moving interstate. Sam says "I'm fine" but keeps staring out the window. Sam probably feels…`, opts: [`Sad, but not ready to talk yet`, `Totally fine, just like he said`, `Excited about the move`, `Bored of his friend`], a: 0,
+      hints: [`Words and actions don't always match.`, `What does staring out the window suggest?`], worked: `People often say "I'm fine" when they aren't. His actions tell you more than his words.`, real: `Learning to read past "I'm fine" helps you support friends.`, trick: `Watch what people do, not just what they say.` },
+    { band: 1, skill: "Being kind", q: `Some kids laughed at a classmate's drawing. When it's your turn to comment, you…`, opts: [`Say something you genuinely like, e.g. the colours`, `Say nothing so you don't look uncool`, `Say "it's okay I guess"`, `Laugh along so you fit in`], a: 0,
+      hints: [`What would help them feel less alone?`, `Find one true, good thing.`], worked: `A genuine compliment when others are unkind takes courage — and helps them feel seen.`, real: `One kind voice can change how someone remembers a bad day.`, trick: `Find something true and good — then say it.` },
+    { band: 1, skill: "Seeing their side", q: `Your teammate misses an easy goal and the team groans. How might they feel?`, opts: [`Embarrassed, like they let everyone down`, `They don't really care about the team`, `Proud of the miss`, `Happy the game is nearly over`], a: 0,
+      hints: [`Imagine every teammate groaning at you.`, `Would you shrug that off easily?`], worked: `Missing in front of everyone feels awful. Seeing their side helps you say "next one's yours!" instead of groaning.`, real: `The best teammates lift people up after mistakes.`, trick: `Groans hurt; encouragement heals.` },
+    { band: 1, skill: "Including everyone", q: `Your friends plan a movie outing, but one friend can't afford the ticket. A kind plan is…`, opts: [`Pick something free, like a movie at someone's house`, `Tell them to ask their parents for money`, `Go anyway and tell them about it later`, `Just don't invite them`], a: 0,
+      hints: [`Kids can't control how much money their family has.`, `Can the plan change so everyone fits?`], worked: `Choosing a free option means nobody is left out because of money — that's inclusion in action.`, real: `Quietly thinking about cost is one of the most caring things friends do.`, trick: `Plan for everyone, not just most.` },
+    { band: 1, skill: "Reading the room", q: `In a group chat, a friend says their grandma is in hospital. The best reply is…`, opts: [`"I'm really sorry. Thinking of you — want to talk?"`, `"That happens to everyone"`, `Change the subject to the weekend`, `A laughing emoji`], a: 0,
+      hints: [`What does a worried friend need to hear?`, `Short and caring beats clever.`], worked: `Acknowledging their worry and offering to listen helps. Brushing it off, even kindly meant, can feel cold.`, real: `In hard times, people remember who checked in.`, trick: `Say sorry, say you're there, then listen.` },
+    { band: 1, skill: "Standing up kindly", q: `Some kids are making fun of a boy's accent. A brave AND kind move is…`, opts: [`Say "not cool" and invite him to hang out with you`, `Pretend you didn't hear`, `Laugh a little so they leave you alone`, `Tell him to try talking differently`], a: 0,
+      hints: [`You don't need a big speech.`, `Standing WITH him matters most.`], worked: `A short "not cool" plus including him shows the teasers it isn't welcome — and shows him he isn't alone.`, real: `An accent often means someone speaks more than one language. That's a superpower.`, trick: `Two words and one invite can stop teasing.` },
+    { band: 2, skill: "Different perspectives", q: `A friend's family doesn't celebrate the holiday your class is partying for, so they're sitting it out. You…`, opts: [`Respect it, and ask what days are special to them`, `Tell them they're missing the best day ever`, `Keep trying to convince them to join`, `Decide they're just being difficult`], a: 0,
+      hints: [`Different families celebrate different things.`, `Curiosity beats convincing.`], worked: `Respecting their family's traditions — and being curious about theirs — shows you value them as they are.`, real: `Australia is full of families with different traditions; curiosity builds bridges.`, trick: `Ask about their world instead of pulling them into yours.` },
+    { band: 2, skill: "Seeing their side", q: `A teacher who is normally calm snaps at the class. A thoughtful way to see it is…`, opts: [`They might be having a hard day — it's not necessarily about us`, `They obviously can't stand this class`, `We should snap back`, `Teachers aren't allowed bad days`], a: 0,
+      hints: [`Is this how they usually act?`, `Adults have hard days too.`], worked: `When someone acts out of character, stress is a likely reason. Seeing that helps you stay calm instead of taking it personally.`, real: `Giving people the benefit of the doubt keeps relationships strong.`, trick: `Out of character? Look for a reason, not a villain.` },
+    { band: 2, skill: "Reading the room", q: `You made the team; your friend didn't, and they're quiet next to you. You should…`, opts: [`Keep celebrating low-key and ask how they're going`, `Say "you'll make it next year, easy!"`, `Tell them every detail of your tryout`, `Avoid them so it isn't awkward`], a: 0,
+      hints: [`Whose feelings need care right now?`, `Quick reassurance can feel like being brushed off.`], worked: `Toning down your celebration and checking in respects their disappointment — without cancelling your good news.`, real: `Being happy for yourself and kind to others at the same time is a grown-up skill.`, trick: `Celebrate softly when a friend is hurting.` },
+    { band: 2, skill: "Fairness", q: `A classmate gets extra time on tests because of a learning difference. Someone calls it "unfair". The fairest view is…`, opts: [`Fair means everyone gets what they need to show what they know`, `Fair means everyone gets exactly the same`, `They're getting special treatment for no reason`, `Nobody should ever get extra time`], a: 0,
+      hints: [`Is "the same" always "fair"?`, `Glasses help some people read — is that unfair?`], worked: `Equal gives everyone the same thing; fair gives everyone what they need to succeed. Extra time levels the playing field.`, real: `Knowing fair vs equal matters in teams, schools and workplaces.`, trick: `Fair isn't always the same — it's what each person needs.` },
+    { band: 2, skill: "Compassion & judgement", q: `Someone in class keeps interrupting and showing off. Before judging, it helps to remember…`, opts: [`People sometimes show off when they feel unsure or want to fit in`, `They just think they're better than everyone`, `Nothing — they're simply annoying`, `You should show off even more`], a: 0,
+      hints: [`What might be underneath the behaviour?`, `Loud isn't always confident.`], worked: `Showing off is often a cover for wanting to be liked. That doesn't make it okay, but understanding it helps you respond calmly.`, real: `Seeing the "why" behind behaviour helps you handle people well.`, trick: `Behaviour is often a message — look for what it's saying.` },
+    { band: 2, skill: "Standing up kindly", q: `A friend is being left out of a group chat on purpose. The kindest thing you can do is…`, opts: [`Message them directly and include them in your plans`, `Screenshot the chat and send it so they know`, `Stay in the chat and say nothing`, `Leave it — it's not your problem`], a: 0,
+      hints: [`Would seeing a screenshot help them or hurt them?`, `Including them directly sends a clear message.`], worked: `Reaching out and including them helps; forwarding screenshots usually makes them feel worse, even if you mean well.`, real: `Being left out online hurts as much as in person.`, trick: `Include — don't expose.` },
+    { band: 3, skill: "Different perspectives", q: `Two friends clash over a news story and both get heated. The most helpful thing to say is…`, opts: [`"Help me understand why this matters to you"`, `"You're both wrong"`, `"Just stop talking about it"`, `"I'll side with whoever makes the best point"`], a: 0,
+      hints: [`Which reply lowers the heat?`, `Understanding comes before agreeing.`], worked: `Asking why it matters invites people to explain instead of defend — it turns an argument into a conversation.`, real: `Mediators and good leaders use exactly this question.`, trick: `Curious beats furious.` },
+    { band: 3, skill: "How others feel", q: `A friend's parents are separating, and lately they're snapping at everyone. The most likely reason is…`, opts: [`They're hurting, and it's coming out as anger`, `They've just become a mean person`, `They want attention`, `It has nothing to do with home`], a: 0,
+      hints: [`Big changes at home spill over.`, `Anger is often sadness wearing armour.`], worked: `Anger often covers hurt or fear. Understanding that helps you stay patient — while you're still allowed to set boundaries.`, real: `Knowing that hurt can show up as anger helps in every relationship.`, trick: `Under anger, look for hurt.` },
+    { band: 3, skill: "Being kind", q: `A quiet classmate always eats lunch alone. A realistic, kind first step is…`, opts: [`Sit with them for a bit and chat about something easy`, `Loudly invite them in front of everyone`, `Assume they must want to be alone`, `Get a teacher to make them join a group`], a: 0,
+      hints: [`Low-pressure is easier to say yes to.`, `A big public invite can feel awkward.`], worked: `A relaxed chat is easy to accept. Some people do like quiet, so keep it low-key and let them choose.`, real: `Small, steady kindness beats one big gesture.`, trick: `Low-pressure kindness is the easiest to accept.` },
+    { band: 3, skill: "Reading the room", q: `At a party someone overshares something private and people start whispering. The empathetic move is…`, opts: [`Kindly change the subject and don't spread it`, `Record it so you have proof later`, `Join the whispering quietly`, `Loudly tell them they've overshared`], a: 0,
+      hints: [`How will they feel tomorrow?`, `Protecting someone's dignity is kind.`], worked: `Gently moving the conversation on and not spreading it protects their dignity — empathy in real time.`, real: `Protecting someone's privacy when they can't is a mark of real character.`, trick: `When someone's exposed, cover them — don't spread it.` },
+    { band: 3, skill: "Fairness", q: `Your group always does whatever the loudest person wants. A fair fix is…`, opts: [`Suggest taking turns choosing, or a quick vote`, `Go along with it so there's no drama`, `Complain about them behind their back`, `Stop hanging out with the group`], a: 0,
+      hints: [`How can quieter voices count too?`, `A simple system can help everyone.`], worked: `Turns or a vote make sure every voice counts, not just the loudest one.`, real: `Good teams make space for quiet people's ideas.`, trick: `If only one voice decides, suggest a system.` },
+    { band: 3, skill: "Standing up kindly", q: `A friend makes a joke that's hurtful about a group of people. The best way to speak up is…`, opts: [`Calmly say "That's not okay with me," without attacking them`, `Laugh so it isn't awkward`, `Post about it online to shame them`, `Lecture them in front of everyone`], a: 0,
+      hints: [`You can disagree without humiliating someone.`, `Short and calm is powerful.`], worked: `A calm "not okay with me" sets a boundary and gives them room to rethink — public shaming usually makes people defensive.`, real: `Calmly speaking up changes more minds than shaming does.`, trick: `Challenge the joke, not the person.` },
+    { band: 4, skill: "Different perspectives", q: `In a debate you're given the side you disagree with. The real benefit is…`, opts: [`It helps you understand why reasonable people hold that view`, `None — you're just pretending`, `It proves the other side is foolish`, `It forces you to change your beliefs`], a: 0,
+      hints: [`What do you learn by arguing the other side?`, `Understanding isn't the same as agreeing.`], worked: `Arguing the other side builds cognitive empathy — understanding why people think differently — without having to agree.`, real: `Lawyers, diplomats and negotiators train exactly this skill.`, trick: `Understand the strongest version of the other side.` },
+    { band: 4, skill: "Compassion & judgement", q: `A classmate was caught cheating and everyone is gossiping. A mature response is…`, opts: [`Stay out of the gossip — it's between them and the school`, `Share the story so everyone knows`, `Decide they're a bad person for good`, `Message them to say you're disgusted`], a: 0,
+      hints: [`Does the gossip help anyone?`, `Consequences are the school's job.`], worked: `Letting the school handle it and not piling on is mature — people are more than their worst choice.`, real: `How you treat people at their lowest says a lot about you.`, trick: `Let consequences happen — without the pile-on.` },
+    { band: 4, skill: "How others feel", q: `A friend who usually aces exams gets a low mark and says "it doesn't matter". You suspect…`, opts: [`It matters a lot, and they're protecting themselves`, `It genuinely doesn't matter to them`, `They're bragging in reverse`, `They want you to feel bad`], a: 0,
+      hints: [`Is this how they normally react to marks?`, `"It doesn't matter" can be a shield.`], worked: `High achievers often downplay setbacks that sting. Gently checking in can help them feel less alone.`, real: `The pressure to always succeed is heavy; empathy lightens it.`, trick: `When someone shrugs off something big, check in gently.` },
+    { band: 4, skill: "Being kind", q: `Your younger sibling is stressed about their first high-school exam. The most helpful thing is…`, opts: [`Tell them nerves are normal and share what helped you`, `Tell them it's easy and they're overreacting`, `Warn them how hard it's going to be`, `Leave them to figure it out alone`], a: 0,
+      hints: [`What would have helped you back then?`, `Normalising nerves is calming.`], worked: `Normalising nerves and sharing real tips gives comfort AND practical help — not dismissal or fear.`, real: `Older students helping younger ones is one of the best study supports there is.`, trick: `Normalise the nerves, then share a tip.` },
+    { band: 4, skill: "Including everyone", q: `Your year's formal after-party is expensive and some classmates can't afford it. A leader's response is…`, opts: [`Suggest a cheaper option or a shared fund so cost doesn't exclude anyone`, `Keep it expensive — it's only once`, `Say nothing; it's not your business`, `Joke that they should get a job`], a: 0,
+      hints: [`Whose experience matters here?`, `Leaders design for everyone.`], worked: `Designing events so cost doesn't shut people out is inclusive leadership.`, real: `Workplaces and communities value people who notice who's left out.`, trick: `Design the plan so nobody's priced out.` },
+    { band: 4, skill: "Reading the room", q: `A friend is venting about a problem and you have a great fix ready. Usually the empathetic move is to…`, opts: [`Listen first, then ask if they want advice or just to be heard`, `Jump straight in with your solution`, `Share your own, bigger problem`, `Say "you'll be fine" and move on`], a: 0,
+      hints: [`Do people always want fixing?`, `Asking is respectful.`], worked: `People often need to feel heard before they want solutions. Asking "advice, or listening?" respects what they need.`, real: `Feeling heard is one of the most powerful things you can give someone.`, trick: `Ask: "Do you want advice, or should I just listen?"` },
   ],
   behaviour: [
     { band: 0, skill: "Big feelings", q: `You feel really angry after losing a game. What helps FIRST?`, opts: ["Yell at the winner", "Take slow breaths and count to five", "Quit forever", "Blame the rules"], a: 1,
@@ -1581,6 +1673,38 @@ const BANKS = {
       hints: ["Attention is a muscle that tires — plan around it.", "Focused sprints beat marathons."], worked: `Short focused blocks (e.g. 25 min) with real breaks sustain attention far better than long grinds.`, real: `The idea behind the popular Pomodoro technique.`, trick: `Sprint, rest, repeat — don't try to marathon.` },
     { band: 4, skill: "Balance & pressure", q: `In a stressful exam term, which habit protects your performance MOST?`, opts: ["Skipping meals to study", "Regular sleep, movement and breaks", "All-night cramming", "Dropping every hobby"], a: 1,
       hints: ["Your brain is part of your body.", "What keeps the machine running well?"], worked: `Sleep, movement and breaks keep memory and focus sharp — they're part of studying, not a break from it.`, real: `Well-rested students consistently outperform crammers.`, trick: `Look after the body and the marks follow.` },
+    /* ---- Wellbeing expansion (DECISIONS #63): +3 per band on NEW situations (no repeats of the
+       sleep/breathing/cramming items above), each with a tempting-but-unhelpful option. ---- */
+    { band: 0, skill: "Big feelings", q: `You feel nervous before reading aloud to the class. What helps?`, opts: [`Take a slow breath and remember nerves are normal`, `Tell yourself you'll definitely mess it up`, `Pretend to feel sick`, `Hide at the back`], a: 0,
+      hints: [`Being nervous is normal — even for grown-ups.`, `What calms your body down?`], worked: `A slow breath calms your body, and knowing nerves are normal helps you give it a go anyway.`, real: `Famous performers still get nervous — they breathe and go on stage anyway.`, trick: `Nervous + a slow breath = ready.` },
+    { band: 0, skill: "Handling mistakes", q: `You accidentally spill paint on your friend's picture. The best thing to do is…`, opts: [`Say sorry and offer to help fix it`, `Pretend it wasn't you`, `Blame someone else`, `Laugh and walk away`], a: 0,
+      hints: [`Accidents happen to everyone.`, `What would make it right?`], worked: `Saying sorry and helping fix it shows you care. Accidents are okay when you own them.`, real: `Owning up is how friends keep trusting you.`, trick: `Oops → sorry → help fix it.` },
+    { band: 0, skill: "Big feelings", q: `You feel sad after a really bad day. A helpful thing to do is…`, opts: [`Tell someone you trust how you feel`, `Keep it all inside so nobody worries`, `Be grumpy at everyone`, `Pretend you're happy`], a: 0,
+      hints: [`Feelings get lighter when you share them.`, `Who looks after you?`], worked: `Talking to someone you trust helps big feelings shrink. Keeping them inside can make them feel bigger.`, real: `Even adults feel better after talking things through.`, trick: `Share it to shrink it.` },
+    { band: 1, skill: "Managing stress", q: `You're worried about starting at a new school next week. What helps most?`, opts: [`Talk to a parent about what's worrying you`, `Keep it secret and worry alone`, `Decide it's going to be terrible`, `Stay up late thinking about it`], a: 0,
+      hints: [`Worries are easier with company.`, `A grown-up might have good ideas.`], worked: `Saying your worries out loud to someone who cares makes them smaller — and they can help you plan.`, real: `Almost everyone feels nervous about a new school; talking helps.`, trick: `Name the worry, share the worry.` },
+    { band: 1, skill: "Being a good friend", q: `A friend tells you a secret that isn't dangerous — they have a crush on someone. A good friend…`, opts: [`Keeps it private`, `Tells just one other person`, `Drops hints about it`, `Makes a joke about it`], a: 0,
+      hints: [`How would you feel if your secret got out?`, `Trust is easy to break.`], worked: `Keeping a safe secret builds trust. (If a secret means someone could get hurt, that's different — tell a trusted adult.)`, real: `The friends people keep are the trustworthy ones.`, trick: `Safe secret? Keep it. Unsafe secret? Tell an adult.` },
+    { band: 1, skill: "Focus & habits", q: `Using a phone or tablet right before bed usually…`, opts: [`Makes it harder to fall asleep`, `Helps you fall asleep faster`, `Makes no difference at all`, `Makes you sleep more deeply`], a: 0,
+      hints: [`Bright screens tell your brain it's still daytime.`, `Games and videos wake your brain up.`], worked: `Screen light and exciting content keep your brain alert, so it takes longer to fall asleep.`, real: `That's why many families keep devices out of bedrooms at night.`, trick: `Screens off a while before bed.` },
+    { band: 2, skill: "Setbacks", q: `You didn't get into the school band after your audition. A healthy response is…`, opts: [`Feel disappointed, then ask what to work on for next time`, `Decide music just isn't for you`, `Blame the judges`, `Pretend you never cared`], a: 0,
+      hints: [`It's okay to feel it.`, `What's your next step?`], worked: `Feeling disappointed is normal. Asking what to improve turns a setback into a plan.`, real: `Plenty of great musicians were knocked back before they made it.`, trick: `Feel it, then find your next step.` },
+    { band: 2, skill: "Balance & pressure", q: `Sport, homework and chores are leaving you exhausted. A sensible move is…`, opts: [`Talk with a parent about what could change`, `Push through and never rest`, `Quit everything at once`, `Stay up later to fit it all in`], a: 0,
+      hints: [`Rest is part of doing well.`, `Grown-ups can help you rebalance.`], worked: `Talking it through helps you find a balance. Rest isn't lazy — it's how you keep going.`, real: `Top athletes schedule rest so they can perform.`, trick: `Overloaded? Talk it out and rebalance.` },
+    { band: 2, skill: "Big feelings", q: `Someone posts something that makes you furious. Before replying, it's smart to…`, opts: [`Pause and let the first wave of anger pass`, `Reply instantly with the harshest thing you can`, `Screenshot it and share it everywhere`, `Bottle it up forever`], a: 0,
+      hints: [`Anger peaks, then fades.`, `A pause protects future-you.`], worked: `Anger is strongest at first. Pausing lets your thinking brain catch up, so you respond instead of react.`, real: `Lots of regrets come from replying in the heat of the moment.`, trick: `Pause before you post.` },
+    { band: 3, skill: "Managing stress", q: `The night before a big test, your mind keeps racing. A helpful habit is…`, opts: [`Write your worries and a plan for tomorrow, then rest`, `Scroll your phone until you're tired`, `Study until 3am`, `Drink an energy drink to push through`], a: 0,
+      hints: [`Get the worries out of your head.`, `Sleep helps you remember.`], worked: `Writing worries and a plan down "parks" them, making sleep easier — and sleep locks in what you studied.`, real: `Psychologists call it a "worry dump"; it measurably helps people sleep.`, trick: `Park your worries on paper, then sleep.` },
+    { band: 3, skill: "Growth mindset", q: `Your essay comes back with lots of comments. The most useful response is…`, opts: [`Use the specific comments to improve the next draft`, `Decide you're just bad at writing`, `Ignore them`, `Argue the teacher is wrong`], a: 0,
+      hints: [`Feedback is a map.`, `What exactly can you change?`], worked: `Specific feedback shows exactly what to improve. Using it is how writing gets better.`, real: `Professional writers go through many drafts and edits.`, trick: `Feedback is directions, not a verdict.` },
+    { band: 3, skill: "Balance & pressure", q: `Scrolling social media is making you feel worse about yourself. A healthy step is…`, opts: [`Mute accounts that make you feel bad and take breaks`, `Scroll more so you keep up`, `Compare yourself even harder`, `Keep feeling bad but say nothing`], a: 0,
+      hints: [`You control your feed.`, `Comparison steals joy.`], worked: `Curating your feed and taking breaks cuts unhealthy comparison — you're in charge of what you see.`, real: `Research links heavy online comparison with lower mood.`, trick: `Your feed, your rules.` },
+    { band: 4, skill: "Focus & habits", q: `You keep putting off a big assignment. A proven way to get going is…`, opts: [`Commit to just five minutes to start`, `Wait until you feel motivated`, `Leave it until the night before`, `Reorganise your whole desk first`], a: 0,
+      hints: [`Starting is the hardest part.`, `Motivation often comes AFTER you begin.`], worked: `Committing to five minutes gets you past the hardest part — starting. Momentum usually carries you on.`, real: `Called the "five-minute rule", it's a favourite trick of productivity coaches.`, trick: `Don't wait for motivation — start small and let it find you.` },
+    { band: 4, skill: "Setbacks", q: `You didn't get the ATAR you hoped for. A realistic, healthy view is…`, opts: [`There are many pathways to your goals, so plan the next step`, `Your future is ruined`, `Everyone will think less of you`, `You should give up on study`], a: 0,
+      hints: [`Is there only one road?`, `Think: alternative entry, bridging courses, TAFE, gap years.`], worked: `There are many routes — alternative entry, bridging courses, TAFE, gap years. A setback is a detour, not a dead end.`, real: `Plenty of successful people took an unexpected pathway.`, trick: `Detour, not dead end.` },
+    { band: 4, skill: "Managing pressure", q: `You feel crushed by the pressure to get top marks. A good step is…`, opts: [`Talk honestly with your parents or a counsellor about how it feels`, `Hide your results`, `Stop trying altogether`, `Say nothing and keep struggling`], a: 0,
+      hints: [`They may not know how you feel.`, `Honest talks often ease pressure.`], worked: `Saying how the pressure feels opens a real conversation — most parents want you to be okay, not just high-scoring. School counsellors help with this every day.`, real: `Talking about pressure is linked to better wellbeing and results.`, trick: `Pressure shared is pressure halved.` },
   ],
   communication: [
     { band: 0, skill: "Sharing & turns", q: `A friend grabs the ball you were using. The strongest first move is…`, opts: ["Grab it back", "Tell the teacher right away", `Say calmly "I was using that — can I finish, then you have a turn?"`, "Walk away upset"], a: 2,
@@ -1931,7 +2055,30 @@ const Engine = {
      opts.prefEasy: bias toward the easier skills in the band (skill pools are authored
      easy→hard), so a diagnostic can soften after a struggling child gets one wrong — kinder,
      and a better read on where "just right" actually is. */
+  /* Answer-position shuffle (DECISIONS #63). The hand-written banks put the right answer at "B"
+     up to 100% of the time (Wellbeing), so a child could win just by always tapping B — no thinking,
+     no learning, no fun. Every multiple-choice item is now shuffled at ask-time and its check is
+     re-pointed to the new position (typed-text answers still work). Items whose wording depends on
+     positions ("option B", "all of the above") are left exactly as authored. */
   question(subject, band, opts = {}) {
+    const it = this._question(subject, band, opts);
+    if (!it || !Array.isArray(it.opts) || it.opts.length < 2 || !it.opts.includes(it.answer)) return it;
+    const words = [it.q, it.worked, ...(it.hints || []), ...it.opts].join(" ");
+    if (/\b(option|answer|choice)\s+[A-D]\b|\bof the above\b|\bboth [a-d] and\b/i.test(words)) return it;
+    const shuffled = it.opts.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
+    const orig = it.check, ans = it.answer, norm = s => String(s).trim().toLowerCase();
+    it.opts = shuffled;
+    it.check = v => {
+      const s = String(v).trim();
+      if (/^\d+$/.test(s) && Number(s) < shuffled.length) return shuffled[Number(s)] === ans; // a tapped choice
+      if (norm(s) === norm(ans)) return true;                                                 // typed answer text
+      try { return !!orig(v); } catch (e) { return false; }
+    };
+    return it;
+  },
+
+  _question(subject, band, opts = {}) {
     band = Math.max(0, Math.min(4, band));
     const easyHalf = arr => opts.prefEasy && arr.length > 2 ? arr.slice(0, Math.ceil(arr.length / 2)) : arr;
     if (subject === "maths") {
@@ -2704,7 +2851,7 @@ const STT = {
    ONBOARDING
    ============================================================ */
 function screenWelcome() {
-  cleanupDemo(); // clear any leftover sample-lesson data from a previous visit
+  cleanupDemo(); CUR_KID = null; // clear any leftover sample-lesson data from a previous visit
   render(`
     <div style="text-align:center;padding:40px 0 10px">
       <div style="font-size:4em">⭐</div>
@@ -2732,7 +2879,7 @@ function screenWelcome() {
       </label>
       <div class="actions"><button class="primary" onclick="finishParentSetup()">Continue →</button></div>
     </div>
-    <p class="footer-note">No ads · No trackers · No data leaves this device · Original practice material only</p>
+    <p class="footer-note">No ads · No trackers · Progress stays on this device · Original practice material only</p>
   `);
 }
 async function finishParentSetup() {
@@ -2841,7 +2988,7 @@ function cleanupDemo() {
    PROFILES & HOME
    ============================================================ */
 function screenProfiles() {
-  cleanupDemo();
+  cleanupDemo(); CUR_KID = null;
   if (!S.family) return screenWelcome();
   if (!S.children.length) return screenAddChild(true);
   document.documentElement.classList.remove("young");
@@ -3054,6 +3201,7 @@ function kidToggleSound(childId) { const c = S.children.find(x => x.id === child
 function screenHome(childId) {
   const c = S.children.find(x => x.id === childId);
   if (!c) return screenProfiles();
+  CUR_KID = childId; // feedback from here on is a kid's
   document.documentElement.classList.toggle("young", !!c.young);
   applyTheme(c);
   const sums = S.summaries[childId] || [];
@@ -3066,22 +3214,36 @@ function screenHome(childId) {
   const exams = relevantExams(c.year, c.curriculum);
   const lastSub = c.lastSubject && SUBJECTS.find(s => s.id === c.lastSubject && s.id !== "explore");
   const lastLv = lastSub ? (S.levels[childId] || {})[lastSub.id] : null;
+  /* Coming back is CELEBRATED, never punished (the humane replacement for "strikes"): after 2+ days
+     away a learner gets a warm welcome + a small gift, once per return. Gain-framed; no guilt, no loss. */
+  const lastSes = S.sessions.find(s => s.childId === childId);
+  const daysAway = lastSes ? Math.floor((Date.now() - lastSes.start) / 864e5) : 0;
+  const comeback = daysAway >= 2 && c.welcomedBack !== lastSes.id;
+  if (comeback) { c.welcomedBack = lastSes.id; addGems(childId, 5); save(); }
+  const pl = playerLevel(totalXp(childId));
   render(`
     <div class="topbar">
       <button class="ghost small" onclick="screenProfiles()">${avatarWithSticker(c)} ${esc(c.nickname)} ▾</button>
       <span class="row">
         ${wk.days > 1 ? `<span class="chip">🌱 ${wk.days} learning days this week</span>` : ""}
-        <span class="chip xp" onclick="screenProgress('${childId}')" style="cursor:pointer" title="My Progress">⭐ ${Object.values(S.levels[childId]||{}).reduce((t,l)=>t+l.xp,0)} XP</span>
+        <span class="chip xp" onclick="screenProgress('${childId}')" style="cursor:pointer" title="My Progress">⭐ ${totalXp(childId)} XP</span>
         <span class="chip gem" id="gemchip" onclick="screenShop('${childId}')" style="cursor:pointer">💎 ${gemsOf(childId)}</span>
       </span>
     </div>
+    <div class="lvbar" onclick="screenProgress('${childId}')" title="My Progress">
+      <span class="lvbadge">Lv ${pl.lv}</span>
+      <div class="lvmain"><div class="lvtop"><b>${levelTitle(pl.lv)}</b><small class="dim">${pl.need - pl.into} XP to Level ${pl.lv + 1} ⭐</small></div>
+      <div class="lvtrack"><div class="lvfill" style="width:${pl.pct}%"></div></div></div>
+    </div>
+    ${comeback ? `<div class="card comeback"><b>🎉 Welcome back, ${esc(c.nickname)}!</b><br><small>We saved your spot. Here's <b>+5 💎</b> to get you going — let's pick up right where you left off.</small></div>` : ""}
     <div class="card hero-greet"><span class="mascot" style="--pcol:${(personaById(c.persona)||{}).color||'#7c83ff'}">${(personaById(c.persona)||{}).emoji||'⭐'}</span><p>${esc(greet)}</p></div>
     ${(() => { const d = dailyState(childId); const done = dailyDoneToday(childId);
       const wk = d.days.filter(x => (Date.now() - new Date(x).getTime()) < 7 * 864e5).length;
       const dots = Array.from({length:7}, (_,i)=>`<span class="daydot ${i < wk ? "on":""}"></span>`).join("");
+      const goal = wk >= 3 ? `🎯 Weekly goal smashed — ${wk} days! 🌟` : `🎯 Weekly goal: ${wk}/3 days`;
       return done
-        ? `<div class="card daily-hero done"><div class="row spread"><div><b>✅ Daily Spark done today!</b><br><small class="dim">Brilliant. A fresh one lands tomorrow — no rush, no pressure.</small><div class="daydots">${dots} <small class="dim">${wk} this week 🌱</small></div></div></div></div>`
-        : `<div class="card tile-pop daily-hero" style="cursor:pointer" onclick="startDailySpark('${childId}')"><div class="row spread"><div><b>🌟 Your Daily Spark is ready!</b><br><small class="dim">4 quick questions + a wonder + a brain tip — about 5 minutes.</small><div class="daydots">${dots} <small class="dim">${wk} learning day${wk!==1?"s":""} this week 🌱</small></div></div><button class="spark small">Start →</button></div></div>`;
+        ? `<div class="card daily-hero done"><div class="row spread"><div><b>✅ Daily Spark done today!</b><br><small class="dim">Brilliant. A fresh one lands tomorrow — no rush, no pressure.</small><div class="daydots">${dots} <small class="dim">${goal}</small></div></div></div></div>`
+        : `<div class="card tile-pop daily-hero" style="cursor:pointer" onclick="startDailySpark('${childId}')"><div class="row spread"><div><b>🌟 Your Daily Spark is ready!</b><br><small class="dim">4 quick questions + a wonder + a brain tip — about 5 minutes.</small><div class="daydots">${dots} <small class="dim">${goal}</small></div></div><button class="spark small">Start →</button></div></div>`;
     })()}
     <div class="card tile-pop coach-banner" style="cursor:pointer" onclick="screenCoaches('${childId}')">
       <div class="row spread"><div><b>🧑‍🏫 Coach Corner</b><br>
@@ -3131,6 +3293,7 @@ function lockedMsg() {
    SESSION — chat state machine
    ============================================================ */
 let SES = null;
+let CUR_KID = null; // learner currently using the app (set on their home) — tells feedback it's a kid; null = grown-up screens
 
 function startSession(childId, subject, forceMode) {
   const c = S.children.find(x => x.id === childId);
@@ -3296,13 +3459,33 @@ function classBarHtml() {
   return `<div class="classbar"><div class="classbar-lbl"><span id="classlbl">Today's class</span><span id="classpct">🎯</span></div>
     <div class="progressbar"><div id="classfill" style="width:0%"></div></div></div>`;
 }
+/* ---------- ⭐ Player level (DECISIONS #63): points → a level + title that only ever GOES UP.
+   Gain-only by design — no decay, no loss, no strikes. A gentle curve (60, 180, 360, 600 XP…)
+   keeps the next level always in reach, so there's a fresh "almost there!" every session. */
+const LEVEL_TITLES = ["Spark", "Explorer", "Thinker", "Builder", "Solver", "Inventor", "Scholar", "Trailblazer", "Mastermind", "Legend"];
+function totalXp(childId) { return Object.values(S.levels[childId] || {}).reduce((t, l) => t + (l.xp || 0), 0); }
+function playerLevel(xp) {
+  let lv = 1, need = 60, spent = 0;
+  while (xp >= spent + need) { spent += need; lv++; need = 60 * lv; }
+  return { lv, into: xp - spent, need, pct: Math.max(0, Math.min(100, Math.round(100 * (xp - spent) / need))) };
+}
+function levelTitle(lv) { return LEVEL_TITLES[Math.min(lv - 1, LEVEL_TITLES.length - 1)]; }
+function levelUp(lv) {
+  const calm = SES && SES.child && SES.child.focus;
+  say(calm ? `Level ${lv} reached — ${levelTitle(lv)}.` : `🎉 LEVEL UP! You're now Level ${lv} — ${levelTitle(lv)}! Your brain just got stronger. 🚀`);
+  if (!calm) { SFX.play("celebrate"); confetti(); }
+  if (SES) addGems(SES.childId, 5); // a little gift for the milestone
+}
+
 function addXp(n) {
   if (!SES) return;
   SES.xp = Math.min(CONFIG.sessionXpCap, SES.xp + n);
   SES.sessionRow.xp = SES.xp;
   const lv = SES.subject !== "explore" && SES.subject !== "exam" ? levelsFor(SES.childId, SES.subject) : null;
+  const beforeLv = lv ? playerLevel(totalXp(SES.childId)).lv : 0;
   if (lv) { lv.xp += n; }
   save();
+  if (lv) { const nowLv = playerLevel(totalXp(SES.childId)).lv; if (nowLv > beforeLv) setTimeout(() => levelUp(nowLv), 600); }
   const chip = document.getElementById("sesxp");
   if (chip) { chip.textContent = `⭐ ${SES.xp} XP`; chip.classList.remove("pop"); void chip.offsetWidth; chip.classList.add("pop"); }
   // 💎 a gem for every genuinely-correct answer (n === xpCorrect); a floaty reward that adds up.
@@ -4965,11 +5148,112 @@ function endSession(afterNudge) {
 }
 /* ---------- Kid feedback loop — a real "do they love it" signal that ALSO tunes the app.
    Aggregate counts + reason tags only (privacy-respecting), no pressure, celebrates any choice. */
+/* ---------- 💬 Feedback everywhere (DECISIONS #63) ----------
+   One always-there button on EVERY page, for kids AND grown-ups, tagged with the page it came
+   from — and it actually REACHES the founder (a Supabase table they read in their dashboard),
+   instead of sitting on each device. Data-minimised by design:
+   • Kids send only structured, anonymous signals — a face, tap-reasons and their school year.
+     No free text, no nickname, no child id — nothing identifying about a child leaves the device.
+   • Grown-ups may add a written note (adults, consented; asked not to include names).
+   Every entry is also kept locally, so the Feedback tab + insights keep working offline. */
+const APP_VERSION = "2026.09.19";
+const FB_REASONS_KID = ["Fun! 🎉", "Too easy", "Too hard", "Confusing 🤔", "Boring 😴", "Something broke 🐛", "More like this! ⭐"];
+const FB_REASONS_ADULT = ["Bug 🐛", "Idea 💡", "Questions / content", "Looks / design", "Other"];
+function fbWho() {
+  const b = app.querySelector(".brand");
+  if (b && /Parents/.test(b.textContent)) return "parent";
+  return (SES || CUR_KID) ? "kid" : "grownup";
+}
+/* A human page name for the founder ("Home", "My Progress", "Parents · Plan", "Session · Maths · learn").
+   Nicknames are ALWAYS scrubbed — some headings say "Rocket's learning journey", and feedback must never
+   carry a child's name off the device. */
+function pageLabel() {
+  let label;
+  if (SES && document.getElementById("msgs")) {
+    const s = SUBJECTS.find(x => x.id === SES.subject);
+    label = `Session · ${s ? s.name : SES.subject} · ${SES.mode}`;
+  } else if (app.querySelector(".tabbar button.on")) {
+    label = "Parents · " + app.querySelector(".tabbar button.on").textContent;       // which parent tab
+  } else if (app.querySelector(".lvbar, .hero-greet")) {
+    label = "Home";                                                                     // kid home has no heading
+  } else {
+    const el = app.querySelector(".topbar .chip") || app.querySelector("h2") || app.querySelector("h1");
+    label = (el && el.textContent) || document.title;
+  }
+  S.children.forEach(c => { if (c.nickname) label = label.split(c.nickname).join("Learner"); });
+  return label.replace(/[^\p{L}\p{N} ·'&/:-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 80) || "Page";
+}
+function fbKid() { return SES ? SES.child : S.children.find(c => c.id === CUR_KID) || null; }
+function openFeedback() {
+  const who = fbWho(), kid = who === "kid", page = pageLabel();
+  const reasons = kid ? FB_REASONS_KID : FB_REASONS_ADULT;
+  const v = modal(`<h2>${kid ? "How's this bit? 😊" : "Feedback on this page"}</h2>
+    <p class="dim"><small>${kid ? "Tap a face — it helps make SparkIQ more fun!" : "Tell us what's working and what to change."}</small><br><span class="tag">📍 ${esc(page)}</span></p>
+    <div class="fb-faces">
+      <button type="button" data-r="love">😍<span>Love it</span></button>
+      <button type="button" data-r="ok">🙂<span>It's OK</span></button>
+      <button type="button" data-r="meh">😕<span>Not great</span></button>
+    </div>
+    <p class="dim" style="margin:10px 0 4px"><small>${kid ? "Why? (tap any)" : "What's it about? (optional)"}</small></p>
+    <div class="fb-reasons">${reasons.map(r => `<button type="button" class="chip" data-x="${esc(r)}">${esc(r)}</button>`).join("")}</div>
+    ${kid ? `<p class="dim" style="margin-top:10px"><small>Want to say more? Ask your grown-up to add a note from the Parents area. Your feedback never includes your name. 💛</small></p>`
+      : `<label>Anything else? <span class="hint">(optional — please don't include names)</span></label>
+         <textarea id="fb-text" rows="3" maxlength="1000" placeholder="What should we improve? What do you love?"></textarea>`}
+    <div class="actions"><button type="button" class="ghost" id="fb-cancel">Cancel</button><button type="button" class="primary" id="fb-send" disabled>Send</button></div>`);
+  let rating = null; const picked = new Set();
+  v.querySelectorAll(".fb-faces button").forEach(b => b.onclick = () => {
+    rating = b.dataset.r; SFX.play("tap");
+    v.querySelectorAll(".fb-faces button").forEach(x => x.classList.toggle("on", x === b));
+    v.querySelector("#fb-send").disabled = false;
+  });
+  v.querySelectorAll(".fb-reasons .chip").forEach(b => b.onclick = () => {
+    const x = b.dataset.x; picked.has(x) ? picked.delete(x) : picked.add(x); b.classList.toggle("on", picked.has(x));
+  });
+  v.querySelector("#fb-cancel").onclick = () => v.remove();
+  v.querySelector("#fb-send").onclick = async () => {
+    const k = kid ? fbKid() : null;
+    const note = kid ? null : (((v.querySelector("#fb-text") || {}).value || "").trim().slice(0, 1000) || null);
+    v.remove();
+    const sent = await sendFeedback({ who, page, rating, reasons: [...picked], comment: note, year: k ? k.year : null });
+    modal(`<h2>${kid ? "Thank you! 💛" : "Thanks — got it 💛"}</h2>
+      <p>${kid ? "You just helped make SparkIQ better for every kid." : (sent ? "It's gone straight to the SparkIQ team. We read every one." : "Saved — it'll shape what we build next.")}</p>
+      <div class="actions"><button class="primary" onclick="this.closest('.modal-veil').remove()">Done</button></div>`);
+    if (kid) { SFX.play("star"); confetti(); }
+  };
+}
+/* Keep a local copy (always), then deliver to the founder's Supabase `feedback` table if configured.
+   Returns true only when the server accepted it. Never throws — feedback must never break the app. */
+async function sendFeedback(entry) {
+  const row = { app: APP_VERSION, device: matchMedia("(max-width: 700px)").matches ? "mobile" : "desktop", ...entry };
+  S.fbLog = S.fbLog || []; S.fbLog.unshift({ at: Date.now(), ...row }); S.fbLog = S.fbLog.slice(0, 200); save();
+  const fb = CONFIG.feedback || {};
+  if (!fb.on || !fb.supaUrl || !fb.supaKey) return false;
+  try {
+    const r = await fetch(fb.supaUrl.replace(/\/$/, "") + "/rest/v1/feedback", {
+      method: "POST",
+      headers: { apikey: fb.supaKey, authorization: "Bearer " + fb.supaKey, "content-type": "application/json", prefer: "return=minimal" },
+      body: JSON.stringify(row),
+    });
+    return r.ok;
+  } catch (e) { return false; }
+}
+function mountFeedbackButton() {
+  if (document.getElementById("fb-fab")) return;
+  const b = document.createElement("button");
+  b.id = "fb-fab"; b.type = "button";
+  b.title = "Give feedback on this page"; b.setAttribute("aria-label", "Give feedback on this page");
+  b.innerHTML = `<span aria-hidden="true">💬</span><span class="fb-fab-t">Feedback</span>`;
+  b.onclick = openFeedback;
+  document.body.appendChild(b);
+}
+
 function kidRate(childId, subject, mood) {
   S.fun = S.fun || {};
   const f = S.fun[childId] = S.fun[childId] || { loved: 0, ok: 0, meh: 0 };
   if (f[mood] !== undefined) f[mood]++;
   save();
+  const kc = S.children.find(c => c.id === childId);
+  sendFeedback({ who: "kid", page: `End of ${subjLabel(subject).name} session`, rating: mood === "loved" ? "love" : mood, reasons: [], comment: null, year: kc ? kc.year : null });
   const moodEl = document.getElementById("fb-mood");
   if (moodEl) moodEl.innerHTML = `<p class="tag" style="font-size:1em">Thanks! 🌟</p>`;
   const reasonEl = document.getElementById("fb-reason");
@@ -4992,6 +5276,8 @@ function kidReason(childId, subject, reason) {
   S.funReasons[childId][reason] = (S.funReasons[childId][reason] || 0) + 1;
   applyKidSignal(childId, subject, reason);
   save();
+  const kc = S.children.find(c => c.id === childId);
+  sendFeedback({ who: "kid", page: `End of ${subjLabel(subject).name} session`, rating: null, reasons: [reason.replace(/^loved:/, "")], comment: null, year: kc ? kc.year : null });
   const reasonEl = document.getElementById("fb-reason");
   if (reasonEl) {
     reasonEl.innerHTML = `<p class="tag good" style="font-size:1em;display:inline-block">Got it — I'll use that next time. 💛</p><div id="fb-wish"></div>`;
@@ -5160,8 +5446,12 @@ function saveParentFeedback() {
   S.parentFeedback.unshift({ at: Date.now(), nps, wtp, liked, improve, wish, comments: "" });
   S.parentFeedback = S.parentFeedback.slice(0, 50);
   save();
-  modal(`<h2>Thank you 💛</h2><p>Your feedback is saved on this device. It directly shapes what we build next — export it from the Feedback tab to send during the pilot.</p>
-    <div class="actions"><button class="primary" onclick="this.closest('.modal-veil').remove();screenParent('feedback')">Done</button></div>`);
+  // The pilot's two key numbers (NPS + willingness-to-pay) now reach the founder, not just this device.
+  const note = [liked && `Liked: ${liked}`, improve && `Improve: ${improve}`, wish && `Wish: ${wish}`].filter(Boolean).join(" | ") || null;
+  const rating = nps == null ? null : nps >= 9 ? "love" : nps >= 7 ? "ok" : "meh";
+  sendFeedback({ who: "parent", page: "Parents · Feedback survey", rating, reasons: [], comment: note, year: null, nps, wtp: wtp || null })
+    .then(sent => modal(`<h2>Thank you 💛</h2><p>${sent ? "Your feedback has gone straight to the SparkIQ team — we read every one." : "Your feedback is saved and directly shapes what we build next."}</p>
+      <div class="actions"><button class="primary" onclick="this.closest('.modal-veil').remove();screenParent('feedback')">Done</button></div>`));
 }
 
 /* Rationalise raw feedback into a small insights model + rule-based recommendations. */
@@ -5381,7 +5671,21 @@ function parentTab(tab) {
       return `<tr><td>${c.avatar} ${esc(c.nickname)}</td><td>${wk.count}</td><td>${wk.mins}m</td><td>${wk.xp}</td>
         <td>${diags.length}</td><td>${dueReviews(c.id).length}</td></tr>`;
     }).join("");
-    return `<div class="card"><h2>This week</h2>
+    /* Missed sessions surface HERE, to the grown-up — never as kid-facing strikes. A parent's warm
+       "want to do your Spark?" beats any in-app pressure, and keeps the child's side guilt-free. */
+    const habit = S.children.map(c => {
+      const s = S.sessions.find(x => x.childId === c.id);
+      const d = s ? Math.floor((Date.now() - s.start) / 864e5) : null;
+      const when = d == null ? "hasn't started yet" : d === 0 ? "practised today ✅" : d === 1 ? "practised yesterday" : `last practised ${d} days ago`;
+      const pl = playerLevel(totalXp(c.id));
+      return `<div class="row spread" style="padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08)">
+        <span>${c.avatar} <b>${esc(c.nickname)}</b> <small class="dim">· Lv ${pl.lv} ${levelTitle(pl.lv)}</small></span>
+        <span class="tag ${d != null && d <= 1 ? "good" : ""}">${when}</span></div>
+        ${d != null && d >= 4 ? `<p class="dim" style="margin:4px 0 6px"><small>💡 A 5-minute Daily Spark is an easy way back in. A gentle "want to do your Spark?" works far better than pressure — and when they return, SparkIQ welcomes them back with a little gift.</small></p>` : ""}`;
+    }).join("");
+    return `<div class="card"><h2>👀 Keeping the habit going</h2>
+      <p class="dim"><small>For you only — kids never see "missed" days or strikes. Coming back is always celebrated.</small></p>${habit}</div>
+    <div class="card"><h2>This week</h2>
       <table class="stats"><tr><th>Child</th><th>Sessions</th><th>Time</th><th>XP</th><th>Subjects placed</th><th>Reviews due</th></tr>${rows}</table></div>
     <div class="card"><h2>Learning level by subject</h2>
       <p class="dim">Where each child sits and how they're tracking, concept by concept — real progress, not just time spent.</p>
@@ -5394,7 +5698,7 @@ function parentTab(tab) {
         <div><div style="font-size:2em;font-weight:800;color:var(--spark)">${S.northStar.second}</div><small class="dim">Second session ≤ 7 days</small></div>
         <div><div style="font-size:2em;font-weight:800;color:var(--good)">${S.northStar.diag ? Math.round(S.northStar.second / S.northStar.diag * 100) : 0}%</div><small class="dim">Conversion</small></div>
       </div>
-      <p class="dim" style="margin-top:10px"><small>Aggregate counters only — no message content is stored or sent anywhere.</small></p></div>
+      <p class="dim" style="margin-top:10px"><small>Aggregate counters only — no message content is stored.</small></p></div>
     ${(S.cost && S.cost.calls) ? `<div class="card"><h2>Cost to serve this month</h2>
       <p class="dim">Only the optional remote AI engine costs anything. Target: ≤ ${CONFIG.currency} $1.50 / family / month.</p>
       <div class="row" style="margin-top:8px;gap:24px">
@@ -5455,11 +5759,14 @@ function parentTab(tab) {
     return `<div class="card privacy"><h2>Our privacy promise (plain English)</h2>
       <p><b>What we collect about your child:</b> a nickname, their school year, and which curriculum they follow. That's the lot.</p>
       <p><b>What we never collect:</b> real name, school, address, phone, photos, location. The app won't even ask.</p>
-      <p><b>Where data lives:</b> on this device, full stop. Nothing is uploaded. Your email is kept only so we can contact you during the pilot.</p>
+      <p><b>Where data lives:</b> your child's progress stays <b>on this device</b>. Only two things ever leave it:
+      (1) when the AI helper is on, the question your child types is sent securely through SparkIQ's own server to an AI model to get an answer — never their name, and SparkIQ doesn't keep it;
+      (2) if anyone taps the 💬 <b>Feedback</b> button, we receive an anonymous rating (kids send only a face, tap-reasons and their school year — no name, no typing) or a grown-up's note.
+      Your email is kept only so we can contact you during the pilot.</p>
       <p><b>What we store about learning:</b> progress numbers and short session summaries ("worked on fractions") — not chat transcripts.</p>
       <p><b>No ads. No trackers. No data sales. No marketing profiles.</b> Ever. This is an architecture decision, not just a policy.</p>
       <p><b>Your controls:</b> export or erase everything from the Data tab, any time.</p>
-      <p><b>For kids:</b> Spark remembers what you're learning so it can help you better — like a tutor with a good memory. It never shares your chats, and your grown-up can see how you're going (but not spy on your words).</p>
+      <p><b>For kids:</b> Spark remembers what you're learning so it can help you better — like a tutor with a good memory. Your chats aren't saved or shown to anyone, and your grown-up can see how you're going (but not spy on your words). If you tap 💬 to tell us what you think, we never see your name.</p>
       <p class="dim"><small>Designed against the Australian Privacy Principles and the direction of Australia's Children's Online Privacy Code. Formal policy documents require review by qualified counsel before public launch.</small></p></div>`;
   }
   if (tab === "plan") return planTab();
@@ -5857,6 +6164,7 @@ async function loadOwnerConfig() {
     if (!r.ok) return;
     const j = await r.json();
     if (j && typeof j.checkout === "object") Object.assign(CONFIG.checkout, j.checkout);
+    if (j && typeof j.feedback === "object") CONFIG.feedback = j.feedback; // where 💬 feedback is delivered
     /* Owner can also switch the AI tutor on for everyone here: point it at their own Supabase
        Edge Function (the Gemini key stays server-side). The app stays parent-safe (daily caps,
        distress routing, output filter all still apply). ai.on=false → fully offline. */
@@ -5874,6 +6182,7 @@ async function loadOwnerConfig() {
 starfield();
 (async () => {
   await loadOwnerConfig();
+  mountFeedbackButton(); // 💬 on every page, kids + grown-ups
   try { if (location.hash && /access_token=/.test(location.hash)) await syncCapture(); } catch (e) { console.warn("sync capture failed", e); }
   if (!S.family) screenWelcome(); else screenProfiles();
   // Signed-in returning visit (no magic-link hash): refresh from cloud in the background.

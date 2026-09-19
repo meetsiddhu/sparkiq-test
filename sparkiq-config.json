@@ -9,5 +9,10 @@
     "on": true,
     "endpoint": "https://jeydvvxytwywqgnfvosi.supabase.co/functions/v1/explain",
     "supaKey": "sb_publishable_g6sU3UnDL2bIHetGESZABA_GJ551B-3"
+  },
+  "feedback": {
+    "on": true,
+    "supaUrl": "https://jeydvvxytwywqgnfvosi.supabase.co",
+    "supaKey": "sb_publishable_g6sU3UnDL2bIHetGESZABA_GJ551B-3"
   }
 }

@@ -2740,6 +2740,7 @@ function masteryReport(childId) {
   if (g.eased) care.push(`eased back when ${esc(kid ? kid.nickname : "they")} hit a tricky patch ${g.eased}×`);
   if (g.recovered) care.push(`and they bounced back ${g.recovered}×`);
   if (g.breaths) care.push(`took ${g.breaths} calm-breath reset${g.breaths > 1 ? "s" : ""}`);
+  if (g.tutorWins) care.push(`guided ${esc(kid ? kid.nickname : "them")} to solve ${g.tutorWins} problem${g.tutorWins > 1 ? "s" : ""} Socratically (nudges, not answers)`);
   const careBanner = care.length
     ? `<div class="card" style="background:rgba(255,120,180,.10);border:1px solid rgba(255,120,180,.25);padding:10px 14px;margin-bottom:8px">
         <b>💛 How SparkIQ is adapting to ${esc(kid ? kid.nickname : "your child")}</b>
@@ -3235,7 +3236,12 @@ function presentItem(item, isRepeat) {
   else { setOpts([]); showInput(true); document.getElementById("kidin").focus(); }
   if (SES.mode === "exam") { setActions([["Skip →", () => recordExam(false, true)]]); startExamClock(); }
   else if (SES.mode === "selmock") { setActions([["Skip →", () => recordMock(false)], ["💡 Hint", () => giveHint()]]); startExamClock(); }
-  else setActions([["💡 Hint", () => giveHint()], ["🧰 Tools", () => openTools()]]);
+  else {
+    const acts = [["💡 Hint", () => giveHint()]];
+    if (SES.mode === "learn") acts.push(["🎓 Tutor me", () => startTutor()]); // flowing Socratic tutoring
+    acts.push(["🧰 Tools", () => openTools()]);
+    setActions(acts);
+  }
   SES.qStart = Date.now(); // pace clock: how long this question takes (continuous learner model)
 }
 function giveHint() {
@@ -3253,6 +3259,7 @@ function submitKid() {
 function handleAnswer(value, isTyped) {
   if (!gateTurn(isTyped ? value : "option")) return;
   if (SES.mode === "explore") return exploreReply(value);
+  if (SES.mode === "tutor") return tutorReply(value);
   if (SES.mode === "feynman") return feynmanReply(value);
   if (SES.mode === "mind") return mindReply(value);
   if (SES.mode === "writing") return writingReply(value);
@@ -4062,6 +4069,80 @@ function feynmanReply(text) {
     setActions([["Next question 🚀", () => { SES.mode = "learn"; nextLearn(); }], ["Finish ⭐", () => endSession()]]);
   }
 }
+/* ---------- Socratic Tutor: a flowing, step-by-step conversation that GUIDES a child to the
+   answer instead of giving it (the evidence-bearing feature — step-level feedback ≈ human 1:1).
+   Offline it drives a real dialogue off the item's hint-ladder + check() + worked steps, withholds
+   the answer until two genuine tries, and is interruptible ("hint", "why", "just tell me"). When a
+   grown-up has enabled AI, the SAME conversation routes through the safety-filtered, rate-capped
+   router for open dialogue — so depth scales up the moment the backend is live, and degrades
+   gracefully to the offline engine otherwise. ---------- */
+function answerReached(it, t) {
+  if (!t) return false;
+  try { if (it.check(t)) return true; } catch (e) {}
+  const a = String(it.answer || "").toLowerCase().trim();
+  return !!a && t.toLowerCase().trim() === a;
+}
+function startTutor() {
+  const it = SES.item;
+  if (!it) { sys("Pick a question first, then I'll tutor you through it! 🎓"); return; }
+  SES.mode = "tutor";
+  SES.tut = { step: 0, tries: 0, revealed: false, hist: [] };
+  setOpts([]); showInput(true);
+  say(`🎓 Let's crack this one together — I won't just hand you the answer, I'll help you find it. That's how it really sticks. 💡\n\n${it.q}\n\nWhere would you start, or what do you notice first?`,
+    "🎓 Tutor mode", coachById("teacher"));
+  const el = document.getElementById("kidin"); if (el) el.focus();
+  setActions([["💡 Nudge me", () => tutorReply("hint")], ["📚 Back to practice", () => { SES.mode = "learn"; presentItem(it, true); }], ["🧰 Tools", () => openTools()]]);
+}
+async function tutorReply(text) {
+  const it = SES.item; if (!it) { SES.mode = "learn"; return; }
+  const t = (text || "").trim();
+  const low = t.toLowerCase();
+  const T = SES.tut = SES.tut || { step: 0, tries: 0, revealed: false, hist: [] };
+
+  // Got there themselves — the whole point.
+  if (answerReached(it, t)) return tutorSolved(it);
+
+  const wantsAnswer = /(tell me|the answer|just (show|tell)|give me the answer|what.?s the answer)/i.test(low);
+  const wantsHint = t === "" || /(hint|nudge|help|stuck|don'?t (know|get)|no idea|confused|dunno|idk)/i.test(low);
+
+  // AI path: richer open dialogue when a grown-up has enabled it and we're within the daily cap.
+  if (aiExplainOn() && !wantsHint && t && explainTurnOk(SES.childId)) {
+    T.tries++; T.hist.push("Student: " + t);
+    const sysP = TUTOR_SYSTEM_PROMPT.replace(/\{\{year\}\}/g, String(SES.child.year))
+      + `\n\nCURRENT PROBLEM: ${it.q}\nThe correct answer is: ${it.answer} — do NOT reveal it unless the student has genuinely tried at least twice. Reply with ONE short, warm Socratic turn: briefly acknowledge their thinking, then ask ONE guiding question that moves them a single step closer. Australian spelling.`;
+    say("🤔 …");
+    const out = await callRemoteRaw(sysP, T.hist.slice(-8).join("\n"), SES.child);
+    if (out) { T.hist.push("Tutor: " + out); say(out, "🎓 Tutor", coachById("teacher")); addXp(CONFIG.xpAttempt); return; }
+    // AI failed/blocked → fall through to the offline engine below.
+  }
+
+  if (!wantsHint && t) { T.tries++; addXp(CONFIG.xpAttempt); }
+  const hints = it.hints || [];
+  // Step the Socratic hint ladder, unless they've earned the reveal (2 real tries + asking).
+  if (T.step < hints.length && !(wantsAnswer && T.tries >= 2)) {
+    const ack = wantsHint ? "" : pick(["Good thinking — not quite yet. ", "Nice effort. ", "You're on it — let's zoom in. "]);
+    say(`${ack}${wantsAnswer ? "Let's get one step closer first. " : ""}💡 ${hints[T.step++]}\n\nWhat do you get if you try that?`, "🎓 Tutor", coachById("teacher"));
+    return;
+  }
+  // Ladder done (or reveal earned) → co-work the full solution, then invite mastery.
+  if (!T.revealed) {
+    T.revealed = true;
+    say(`Let's walk through it together:\n\n${it.worked}\n\nSo the answer is ${it.answer}.${it.trick ? `\n\n🧠 ${it.trick}` : ""}`, "🎓 Tutor", coachById("teacher"));
+    setOpts([]); showInput(false);
+    setActions([["✅ Got it — a fresh one", () => { SES.mode = "learn"; nextLearn(it.skillId); }], ["🎤 Let me explain it back", () => startFeynman()], ["🧰 Tools", () => openTools()]]);
+    return;
+  }
+  say(`The best way to lock it in now is to teach it back or try a fresh one. 🌟`);
+}
+function tutorSolved(it) {
+  SFX.play("correct"); avatarReact("celebrate"); confetti();
+  bumpStat(it.skillId, true); // records mastery, but NOT via the auto-band loop (a guided win, not solo)
+  say(`🎉 YES — you reached it yourself! I only nudged; YOU did the thinking. That's exactly how it becomes permanent.${it.real ? `\n\n🌏 Where it shows up: ${it.real}` : ""}`, "🎓 Tutor", coachById("teacher"));
+  addXp(CONFIG.xpCorrect); addGems(SES.childId, GEMS.milestone); gemFloat();
+  noteGrowth(SES.childId, "tutorWins");
+  setOpts([]); showInput(false);
+  setActions([["🎓 Tutor me on a new one", () => { SES.mode = "learn"; nextLearn(); setTimeout(startTutor, 850); }], ["📚 Back to practice", () => { SES.mode = "learn"; nextLearn(); }], ["Finish ⭐", () => endSession()]]);
+}
 /* ---------- COACH TEAM: the kid meets three expert coaches who power the teaching. ---------- */
 function screenCoaches(childId) {
   const c = S.children.find(x => x.id === childId);
@@ -4497,6 +4578,7 @@ function openTools() {
     <button data-t="worked">📝 Worked example</button>
     <button data-t="pad">✏️ Scratchpad</button>
     <button data-t="surprise">🎁 Surprise me</button>
+    <button data-t="tutor">🎓 Tutor me through this</button>
     <button data-t="feynman">🎤 Explain it back</button>
     <button data-t="quiz">⚡ Quiz me</button>
     <button data-t="challenge" ${challengeOn ? 'style="border-color:var(--spark);color:var(--spark)"' : ""}>${challengeOn ? "🚀 Back to my level" : "🚀 Level up (work ahead)"}</button>
@@ -4510,6 +4592,7 @@ function openTools() {
     if (t === "trick") it ? say("🧠 " + it.trick) : sys("Pick a question first!");
     if (t === "worked") it ? (say("📝 " + it.worked), afterWorked()) : sys("Pick a question first!");
     if (t === "surprise") { const e = pick(EXPLORE_BANK); say("🎁 Random wonder: " + e.a); }
+    if (t === "tutor") it ? startTutor() : sys("Pick a question first!");
     if (t === "feynman") startFeynman();
     if (t === "quiz") startQuiz();
     if (t === "challenge") {
